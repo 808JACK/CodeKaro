@@ -15,6 +15,10 @@ public class ContestSubmissionResponse {
     private Long problemId;
     private String status;
     private Boolean isAccepted;
+    private Integer score;
+    private Long executionTimeMs;
+    private Integer memoryUsedKb;
+    private String errorMessage;
     private Integer testCasesPassed;
     private Integer totalTestCases;
     private Instant submittedAt;
@@ -48,6 +52,26 @@ public class ContestSubmissionResponse {
     @Generated
     public Boolean getIsAccepted() {
         return this.isAccepted;
+    }
+
+    @Generated
+    public Integer getScore() {
+        return this.score;
+    }
+
+    @Generated
+    public Long getExecutionTimeMs() {
+        return this.executionTimeMs;
+    }
+
+    @Generated
+    public Integer getMemoryUsedKb() {
+        return this.memoryUsedKb;
+    }
+
+    @Generated
+    public String getErrorMessage() {
+        return this.errorMessage;
     }
 
     @Generated
@@ -93,6 +117,26 @@ public class ContestSubmissionResponse {
     @Generated
     public void setIsAccepted(Boolean isAccepted) {
         this.isAccepted = isAccepted;
+    }
+
+    @Generated
+    public void setScore(Integer score) {
+        this.score = score;
+    }
+
+    @Generated
+    public void setExecutionTimeMs(Long executionTimeMs) {
+        this.executionTimeMs = executionTimeMs;
+    }
+
+    @Generated
+    public void setMemoryUsedKb(Integer memoryUsedKb) {
+        this.memoryUsedKb = memoryUsedKb;
+    }
+
+    @Generated
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
     }
 
     @Generated

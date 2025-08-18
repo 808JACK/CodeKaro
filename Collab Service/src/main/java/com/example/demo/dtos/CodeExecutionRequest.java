@@ -15,6 +15,12 @@ public class CodeExecutionRequest {
     private String problemName;
     private long timeLimitMs = 5000L;
     private long memoryLimitMb = 256L;
+    
+    // Contest-related fields for MongoDB submission saving
+    private Long contestId;
+    private Long userId;
+    private String userName;
+    private Long timeFromStartMs;
 
     @Generated
     public CodeExecutionRequest() {
@@ -51,6 +57,26 @@ public class CodeExecutionRequest {
     }
 
     @Generated
+    public Long getContestId() {
+        return this.contestId;
+    }
+
+    @Generated
+    public Long getUserId() {
+        return this.userId;
+    }
+
+    @Generated
+    public String getUserName() {
+        return this.userName;
+    }
+
+    @Generated
+    public Long getTimeFromStartMs() {
+        return this.timeFromStartMs;
+    }
+
+    @Generated
     public void setCode(String code) {
         this.code = code;
     }
@@ -78,6 +104,26 @@ public class CodeExecutionRequest {
     @Generated
     public void setMemoryLimitMb(long memoryLimitMb) {
         this.memoryLimitMb = memoryLimitMb;
+    }
+
+    @Generated
+    public void setContestId(Long contestId) {
+        this.contestId = contestId;
+    }
+
+    @Generated
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    @Generated
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
+
+    @Generated
+    public void setTimeFromStartMs(Long timeFromStartMs) {
+        this.timeFromStartMs = timeFromStartMs;
     }
 
     @Generated

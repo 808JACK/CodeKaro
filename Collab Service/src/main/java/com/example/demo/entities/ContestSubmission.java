@@ -9,14 +9,20 @@
 package com.example.demo.entities;
 
 import java.time.Instant;
+
 import lombok.Generated;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-@Document(collection="contest_submissions")
+@Getter
+@Setter
+@Document(collection="contest_room_submissions")
 public class ContestSubmission {
     @Id
     private String id;
+    private Long submissionNumber; // Custom numeric ID for easier tracking
     private Long contestId;
     private Long userId;
     private String userName;
@@ -44,6 +50,11 @@ public class ContestSubmission {
     @Generated
     public String getId() {
         return this.id;
+    }
+
+    @Generated
+    public Long getSubmissionNumber() {
+        return this.submissionNumber;
     }
 
     @Generated
@@ -139,6 +150,11 @@ public class ContestSubmission {
     @Generated
     public void setId(String id) {
         this.id = id;
+    }
+
+    @Generated
+    public void setSubmissionNumber(Long submissionNumber) {
+        this.submissionNumber = submissionNumber;
     }
 
     @Generated
@@ -398,8 +414,9 @@ public class ContestSubmission {
     }
 
     @Generated
-    public ContestSubmission(String id, Long contestId, Long userId, String userName, Long problemId, String problemTitle, String code, String language, Boolean isAccepted, Integer score, Long executionTimeMs, Integer memoryUsedKb, String status, String errorMessage, Integer testCasesPassed, Integer totalTestCases, Instant submittedAt, Instant judgedAt, Long timeFromStartMs) {
+    public ContestSubmission(String id, Long submissionNumber, Long contestId, Long userId, String userName, Long problemId, String problemTitle, String code, String language, Boolean isAccepted, Integer score, Long executionTimeMs, Integer memoryUsedKb, String status, String errorMessage, Integer testCasesPassed, Integer totalTestCases, Instant submittedAt, Instant judgedAt, Long timeFromStartMs) {
         this.id = id;
+        this.submissionNumber = submissionNumber;
         this.contestId = contestId;
         this.userId = userId;
         this.userName = userName;
@@ -424,6 +441,8 @@ public class ContestSubmission {
     public static class ContestSubmissionBuilder {
         @Generated
         private String id;
+        @Generated
+        private Long submissionNumber;
         @Generated
         private Long contestId;
         @Generated
@@ -468,6 +487,12 @@ public class ContestSubmission {
         @Generated
         public ContestSubmissionBuilder id(String id) {
             this.id = id;
+            return this;
+        }
+
+        @Generated
+        public ContestSubmissionBuilder submissionNumber(Long submissionNumber) {
+            this.submissionNumber = submissionNumber;
             return this;
         }
 
@@ -581,7 +606,7 @@ public class ContestSubmission {
 
         @Generated
         public ContestSubmission build() {
-            return new ContestSubmission(this.id, this.contestId, this.userId, this.userName, this.problemId, this.problemTitle, this.code, this.language, this.isAccepted, this.score, this.executionTimeMs, this.memoryUsedKb, this.status, this.errorMessage, this.testCasesPassed, this.totalTestCases, this.submittedAt, this.judgedAt, this.timeFromStartMs);
+            return new ContestSubmission(this.id, this.submissionNumber, this.contestId, this.userId, this.userName, this.problemId, this.problemTitle, this.code, this.language, this.isAccepted, this.score, this.executionTimeMs, this.memoryUsedKb, this.status, this.errorMessage, this.testCasesPassed, this.totalTestCases, this.submittedAt, this.judgedAt, this.timeFromStartMs);
         }
 
         @Generated

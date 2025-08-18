@@ -13,7 +13,7 @@ import java.util.Optional;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
-@Repository
+// @Repository - Disabled for PostgreSQL-only setup
 public interface RoomCompactedCodeStateRepository
 extends MongoRepository<RoomCompactedCodeState, String> {
     public Optional<RoomCompactedCodeState> findByRoomIdAndProblemId(Long var1, Long var2);

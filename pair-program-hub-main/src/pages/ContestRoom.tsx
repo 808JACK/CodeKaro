@@ -146,8 +146,14 @@ const ContestRoom = () => {
             console.log('Problem IDs found:', problemIds);
           } catch (joinError: any) {
             console.error('Failed to join contest:', joinError);
-            if (joinError.message.includes('Contest with code')) {
-              throw new Error(`Invalid contest code: ${contestId}. Please check the code and try again.`);
+            
+            // If contest doesn't exist, try to join as a regular room instead
+            if (joinError.message.includes('Contest with code') || joinError.message.includes('does not exist')) {
+              console.log('Contest not found, attempting to join as regular room...');
+              
+              // Redirect to regular room
+              navigate(`/room/${contestId}`, { replace: true });
+              return; // Exit early to prevent further execution
             } else {
               throw new Error(`Failed to join contest: ${joinError.message}`);
             }
@@ -347,6 +353,7 @@ const ContestRoom = () => {
       const request: CodeExecutionRequest = {
         code: code,
         language: language,
+        problemId: currentProblem.id, // Add problemId for consistency
         problemName: problemName,
         timeLimitMs: 2000, // 2 seconds per test
         memoryLimitMb: 256 // 256 MB
@@ -488,6 +495,7 @@ const ContestRoom = () => {
       const request: CodeExecutionRequest = {
         code: code,
         language: language,
+        problemId: currentProblem.id, // CRITICAL: Add problemId for MongoDB saving
         problemName: problemName,
         timeLimitMs: 2000, // 2 seconds per test
         memoryLimitMb: 256 // 256 MB
@@ -504,7 +512,7 @@ const ContestRoom = () => {
         description: `Running all tests for ${currentProblem.title}`,
       });
 
-      const result = await ContestService.submitCode(request);
+      const result = await ContestService.submitCode(request, contestId, contest?.startTime);
       console.log('Code submission result:', result);
 
       // Log detailed submission results
@@ -533,7 +541,7 @@ const ContestRoom = () => {
         });
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('=== CODE SUBMISSION ERROR ===');
       console.error('Error type:', error.constructor.name);
       console.error('Error message:', error.message);
@@ -606,7 +614,7 @@ const ContestRoom = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <p>Contest not found or no problems available.</p>
-          <Button onClick={() => navigate('/')} className="mt-4">
+          <Button onClick={() => navigate('/', { state: { fromContest: true } })} className="mt-4">
             Back to Home
           </Button>
         </div>
@@ -624,7 +632,7 @@ const ContestRoom = () => {
         problems={problems}
         isAdmin={isAdmin}
         onStartContest={handleStartContest}
-        onBack={() => navigate('/')}
+        onBack={() => navigate('/', { state: { fromContest: true } })}
       />
     );
   }
@@ -637,7 +645,7 @@ const ContestRoom = () => {
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/', { state: { fromContest: true } })}
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />

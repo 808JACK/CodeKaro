@@ -23,4 +23,10 @@ extends MongoRepository<ContestSubmission, String> {
     public Optional<ContestSubmission> findByContestIdAndUserIdAndProblemIdAndIsAcceptedTrue(Long var1, Long var2, Long var3);
 
     public List<ContestSubmission> findByContestIdOrderBySubmittedAtDesc(Long var1);
+
+    public List<ContestSubmission> findByUserIdOrderBySubmittedAtDesc(Long userId);
+
+    public List<ContestSubmission> findByContestId(Long contestId);
+
+    public List<ContestSubmission> findByUserIdAndContestIdOrderBySubmittedAtDesc(Long userId, Long contestId);
 }

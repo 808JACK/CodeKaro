@@ -8,15 +8,19 @@
  */
 package com.example.demo.entities;
 
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import java.util.List;
 import lombok.Generated;
-import org.springframework.data.mongodb.core.mapping.Document;
 
-@Document(collection="user_recent_rooms")
+@Entity
+@Table(name="user_recent_rooms")
 public class UserRecentRooms {
     @Id
     private Long userId;
+    
+    @ElementCollection
+    @CollectionTable(name="user_recent_room_ids", joinColumns=@JoinColumn(name="user_id"))
+    @Column(name="room_id")
     private List<Long> recentRoomIds;
 
     @Generated

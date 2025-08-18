@@ -59,9 +59,15 @@ export interface ContestDetails {
 export interface CodeExecutionRequest {
   code: string;
   language: string;
+  problemId?: number;
   problemName: string;
   timeLimitMs: number;
   memoryLimitMb: number;
+  // Contest context fields for MongoDB saving
+  contestId?: number;
+  userId?: number;
+  userName?: string;
+  timeFromStartMs?: number;
 }
 
 export interface TestResult {
@@ -76,6 +82,15 @@ export interface CodeExecutionResponse {
   overallVerdict: string;
   testResults: TestResult[];
   error?: string;
+}
+
+export interface RecentRoom {
+  id: string;
+  name: string;
+  type: 'contest' | 'room';
+  participants: number;
+  lastActive: string;
+  createdAt: string;
 }
 
 // Contest Service
@@ -340,7 +355,21 @@ export class ContestService {
     try {
       console.log('=== CONTEST SERVICE RUN CODE ===');
       console.log('API Endpoint:', API_CONFIG.CONTEST.RUN_CODE);
-      console.log('Request payload:', request);
+      
+      // Get user info for context (optional for run, required for submit)
+      const userInfo = AuthService.getStoredUserInfo();
+      
+      // Enhance request with user context if available
+      const enhancedRequest = {
+        ...request,
+        // Add user context if available (helpful for logging)
+        userId: userInfo?.userId,
+        userName: userInfo?.username || userInfo?.name || (userInfo?.userId ? `user_${userInfo.userId}` : undefined),
+        // Ensure problemId is set
+        problemId: request.problemId || 1,
+      };
+
+      console.log('Enhanced request payload:', enhancedRequest);
       console.log('Request headers:', { 'Content-Type': 'application/json' });
       
       const startTime = Date.now();
@@ -350,7 +379,7 @@ export class ContestService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(request),
+        body: JSON.stringify(enhancedRequest),
       });
 
       const endTime = Date.now();
@@ -383,7 +412,7 @@ export class ContestService {
       }
 
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('=== RUN CODE ERROR ===');
       console.error('Error type:', error.constructor.name);
       console.error('Error message:', error.message);
@@ -394,21 +423,55 @@ export class ContestService {
   }
 
   // Submit code
-  static async submitCode(request: CodeExecutionRequest): Promise<CodeExecutionResponse> {
+  static async submitCode(request: CodeExecutionRequest, contestCode: string, contestStartTime?: string): Promise<CodeExecutionResponse> {
     try {
       console.log('=== CONTEST SERVICE SUBMIT CODE ===');
-      console.log('API Endpoint:', API_CONFIG.CONTEST.SUBMIT_CODE);
-      console.log('Request payload:', request);
+      const submitUrl = API_CONFIG.CONTEST.SUBMIT_CODE.replace('{contestCode}', contestCode);
+      console.log('API Endpoint:', submitUrl);
+      console.log('Contest Code:', contestCode);
+      
+      // Get user info for contest context
+      const userInfo = AuthService.getStoredUserInfo();
+      if (!userInfo?.userId) {
+        throw new Error('No user info found - cannot submit without user context');
+      }
+
+      // Calculate time from contest start
+      let timeFromStartMs = 0;
+      if (contestStartTime) {
+        const startTime = new Date(contestStartTime).getTime();
+        const currentTime = Date.now();
+        timeFromStartMs = currentTime - startTime;
+      }
+
+      // Enhance request with required contest context
+      const enhancedRequest = {
+        ...request,
+        // CRITICAL: Add missing contest context fields
+        userId: userInfo.userId,
+        userName: userInfo.username || userInfo.name || `user_${userInfo.userId}`,
+        timeFromStartMs: timeFromStartMs,
+        // Ensure problemId is set
+        problemId: request.problemId || 1,
+      };
+
+      console.log('Enhanced request payload:', enhancedRequest);
+      console.log('Contest context added:', {
+        userId: enhancedRequest.userId,
+        userName: enhancedRequest.userName,
+        timeFromStartMs: enhancedRequest.timeFromStartMs,
+        problemId: enhancedRequest.problemId
+      });
       console.log('Request headers:', { 'Content-Type': 'application/json' });
       
       const startTime = Date.now();
 
-      const response = await fetch(API_CONFIG.CONTEST.SUBMIT_CODE, {
+      const response = await fetch(submitUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(request),
+        body: JSON.stringify(enhancedRequest),
       });
 
       const endTime = Date.now();
@@ -441,12 +504,50 @@ export class ContestService {
       }
 
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('=== SUBMIT CODE ERROR ===');
       console.error('Error type:', error.constructor.name);
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
       console.error('Full error object:', error);
+      throw error;
+    }
+  }
+
+  // Get recent rooms
+  static async getRecentRooms(): Promise<RecentRoom[]> {
+    try {
+      const userInfo = AuthService.getStoredUserInfo();
+      
+      if (!userInfo?.userId) {
+        throw new Error('No user info found');
+      }
+
+      console.log('=== FETCHING RECENT ROOMS ===');
+      console.log('API Endpoint:', API_CONFIG.CONTEST.GET_RECENT_ROOMS);
+      console.log('User ID:', userInfo.userId);
+
+      const response = await fetch(API_CONFIG.CONTEST.GET_RECENT_ROOMS, {
+        method: 'GET',
+        headers: {
+          'X-User-Id': userInfo.userId.toString(),
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      const result = await response.json();
+      console.log('Recent rooms response:', result);
+      
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to fetch recent rooms');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Get recent rooms error:', error);
       throw error;
     }
   }

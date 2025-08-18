@@ -49,7 +49,7 @@ public class Contest {
     private String description;
     @Column(name="invite_link", unique=true, nullable=false)
     private String inviteLink;
-    @Column(name="creator_id", nullable=false)
+    @Column(name="creator_user_id", nullable=false)
     private Long creatorId;
     @Column(name="start_time", nullable=false)
     private ZonedDateTime startTime;

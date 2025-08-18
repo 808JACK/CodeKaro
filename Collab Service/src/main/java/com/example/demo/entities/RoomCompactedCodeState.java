@@ -13,7 +13,7 @@ import lombok.Generated;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-@Document(collection="room_compacted_code_states")
+// @Document(collection="room_compacted_code_states") - Disabled for PostgreSQL-only setup
 public class RoomCompactedCodeState {
     @Id
     private String id;

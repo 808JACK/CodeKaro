@@ -65,6 +65,8 @@ public class Room {
     private Long creatorUserId;
     @Column(nullable=false)
     private Boolean voiceEnabled;
+    @Column(nullable=false)
+    private Integer participantCount = 1;
     @Enumerated(value=EnumType.STRING)
     @Column(name="room_type")
     private RoomType roomType = RoomType.COLLAB;
@@ -111,6 +113,11 @@ public class Room {
     @Generated
     public Boolean getVoiceEnabled() {
         return this.voiceEnabled;
+    }
+
+    @Generated
+    public Integer getParticipantCount() {
+        return this.participantCount;
     }
 
     @Generated
@@ -164,6 +171,11 @@ public class Room {
     }
 
     @Generated
+    public void setParticipantCount(Integer participantCount) {
+        this.participantCount = participantCount;
+    }
+
+    @Generated
     public void setRoomType(RoomType roomType) {
         this.roomType = roomType;
     }
@@ -208,6 +220,11 @@ public class Room {
         Boolean this$voiceEnabled = this.getVoiceEnabled();
         Boolean other$voiceEnabled = other.getVoiceEnabled();
         if (this$voiceEnabled == null ? other$voiceEnabled != null : !((Object)this$voiceEnabled).equals(other$voiceEnabled)) {
+            return false;
+        }
+        Integer this$participantCount = this.getParticipantCount();
+        Integer other$participantCount = other.getParticipantCount();
+        if (this$participantCount == null ? other$participantCount != null : !((Object)this$participantCount).equals(other$participantCount)) {
             return false;
         }
         String this$inviteCode = this.getInviteCode();
@@ -260,6 +277,8 @@ public class Room {
         result = result * 59 + ($creatorUserId == null ? 43 : ((Object)$creatorUserId).hashCode());
         Boolean $voiceEnabled = this.getVoiceEnabled();
         result = result * 59 + ($voiceEnabled == null ? 43 : ((Object)$voiceEnabled).hashCode());
+        Integer $participantCount = this.getParticipantCount();
+        result = result * 59 + ($participantCount == null ? 43 : ((Object)$participantCount).hashCode());
         String $inviteCode = this.getInviteCode();
         result = result * 59 + ($inviteCode == null ? 43 : $inviteCode.hashCode());
         String $name = this.getName();
@@ -279,7 +298,7 @@ public class Room {
 
     @Generated
     public String toString() {
-        return "Room(id=" + this.getId() + ", inviteCode=" + this.getInviteCode() + ", name=" + this.getName() + ", status=" + String.valueOf((Object)this.getStatus()) + ", creatorUserId=" + this.getCreatorUserId() + ", voiceEnabled=" + this.getVoiceEnabled() + ", roomType=" + String.valueOf((Object)this.getRoomType()) + ", problemIds=" + String.valueOf(this.getProblemIds()) + ", createdAt=" + String.valueOf(this.getCreatedAt()) + ", lastActiveAt=" + String.valueOf(this.getLastActiveAt()) + ")";
+        return "Room(id=" + this.getId() + ", inviteCode=" + this.getInviteCode() + ", name=" + this.getName() + ", status=" + String.valueOf((Object)this.getStatus()) + ", creatorUserId=" + this.getCreatorUserId() + ", voiceEnabled=" + this.getVoiceEnabled() + ", participantCount=" + this.getParticipantCount() + ", roomType=" + String.valueOf((Object)this.getRoomType()) + ", problemIds=" + String.valueOf(this.getProblemIds()) + ", createdAt=" + String.valueOf(this.getCreatedAt()) + ", lastActiveAt=" + String.valueOf(this.getLastActiveAt()) + ")";
     }
 
     @Generated
@@ -287,13 +306,14 @@ public class Room {
     }
 
     @Generated
-    public Room(Long id, String inviteCode, String name, RoomStatus status, Long creatorUserId, Boolean voiceEnabled, RoomType roomType, List<Long> problemIds, ZonedDateTime createdAt, ZonedDateTime lastActiveAt) {
+    public Room(Long id, String inviteCode, String name, RoomStatus status, Long creatorUserId, Boolean voiceEnabled, Integer participantCount, RoomType roomType, List<Long> problemIds, ZonedDateTime createdAt, ZonedDateTime lastActiveAt) {
         this.id = id;
         this.inviteCode = inviteCode;
         this.name = name;
         this.status = status;
         this.creatorUserId = creatorUserId;
         this.voiceEnabled = voiceEnabled;
+        this.participantCount = participantCount;
         this.roomType = roomType;
         this.problemIds = problemIds;
         this.createdAt = createdAt;
@@ -314,6 +334,8 @@ public class Room {
         private Long creatorUserId;
         @Generated
         private Boolean voiceEnabled;
+        @Generated
+        private Integer participantCount;
         @Generated
         private RoomType roomType;
         @Generated
@@ -364,6 +386,12 @@ public class Room {
         }
 
         @Generated
+        public RoomBuilder participantCount(Integer participantCount) {
+            this.participantCount = participantCount;
+            return this;
+        }
+
+        @Generated
         public RoomBuilder roomType(RoomType roomType) {
             this.roomType = roomType;
             return this;
@@ -389,12 +417,12 @@ public class Room {
 
         @Generated
         public Room build() {
-            return new Room(this.id, this.inviteCode, this.name, this.status, this.creatorUserId, this.voiceEnabled, this.roomType, this.problemIds, this.createdAt, this.lastActiveAt);
+            return new Room(this.id, this.inviteCode, this.name, this.status, this.creatorUserId, this.voiceEnabled, this.participantCount, this.roomType, this.problemIds, this.createdAt, this.lastActiveAt);
         }
 
         @Generated
         public String toString() {
-            return "Room.RoomBuilder(id=" + this.id + ", inviteCode=" + this.inviteCode + ", name=" + this.name + ", status=" + String.valueOf((Object)this.status) + ", creatorUserId=" + this.creatorUserId + ", voiceEnabled=" + this.voiceEnabled + ", roomType=" + String.valueOf((Object)this.roomType) + ", problemIds=" + String.valueOf(this.problemIds) + ", createdAt=" + String.valueOf(this.createdAt) + ", lastActiveAt=" + String.valueOf(this.lastActiveAt) + ")";
+            return "Room.RoomBuilder(id=" + this.id + ", inviteCode=" + this.inviteCode + ", name=" + this.name + ", status=" + String.valueOf((Object)this.status) + ", creatorUserId=" + this.creatorUserId + ", voiceEnabled=" + this.voiceEnabled + ", participantCount=" + this.participantCount + ", roomType=" + String.valueOf((Object)this.roomType) + ", problemIds=" + String.valueOf(this.problemIds) + ", createdAt=" + String.valueOf(this.createdAt) + ", lastActiveAt=" + String.valueOf(this.lastActiveAt) + ")";
         }
     }
 }

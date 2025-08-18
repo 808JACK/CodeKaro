@@ -40,12 +40,16 @@ import org.springframework.retry.annotation.EnableRetry;
 @Configuration
 @ConditionalOnProperty(name={"mongodb.enabled"}, havingValue="true", matchIfMissing=false)
 @EnableRetry
-@EnableMongoRepositories(basePackages={"com.example.demo.repos"}, includeFilters={@ComponentScan.Filter(type=FilterType.ASSIGNABLE_TYPE, value={RoomCompactedCodeStateRepository.class, UserRecentRoomsRepository.class, ChatMessageRepository.class, ContestSubmissionRepository.class})})
+@EnableMongoRepositories(basePackages={"com.example.demo.repos"}, includeFilters={@ComponentScan.Filter(type=FilterType.ASSIGNABLE_TYPE, value={ContestSubmissionRepository.class})})
 public class MongoConfig
 extends AbstractMongoClientConfiguration {
+    
+    public MongoConfig() {
+        System.out.println("MongoConfig constructor called - MongoDB is being configured!");
+    }
     @Value(value="${spring.data.mongodb.uri}")
     private String mongoUri;
-    @Value(value="${spring.data.mongodb.database:contest_submissions_db}")
+    @Value(value="${spring.data.mongodb.database:Collabdb}")
     private String databaseName;
 
     protected String getDatabaseName() {

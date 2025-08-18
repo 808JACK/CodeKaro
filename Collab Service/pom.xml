@@ -27,7 +27,7 @@
 		<url/>
 	</scm>
 	<properties>
-		<java.version>21</java.version>
+		<java.version>17</java.version>
 		<spring-cloud.version>2025.0.0</spring-cloud.version>
 		<mockito.version>5.14.2</mockito.version>
 		<cassandra.test.enabled>false</cassandra.test.enabled>

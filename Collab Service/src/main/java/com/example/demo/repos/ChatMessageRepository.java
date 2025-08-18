@@ -12,7 +12,7 @@ import java.util.List;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
-@Repository
+// @Repository - Disabled for PostgreSQL-only setup
 public interface ChatMessageRepository
 extends MongoRepository<ChatMessage, String> {
     public List<ChatMessage> findByRoomId(Long var1);

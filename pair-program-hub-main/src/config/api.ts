@@ -27,7 +27,11 @@ export const API_CONFIG = {
     JOIN: 'http://localhost:8092/api/contests/{contestId}/join',
     GET_DETAILS: 'http://localhost:8092/api/contests/{contestId}/details',
     RUN_CODE: 'http://localhost:8092/api/contests/code/run',
-    SUBMIT_CODE: 'http://localhost:8092/api/contests/code/submit'
+    SUBMIT_CODE: 'http://localhost:8092/api/contests/{contestCode}/code/submit',
+    // Dashboard APIs - Enhanced for better user experience
+    GET_RECENT_ROOMS: 'http://localhost:8092/api/contests/recent-rooms', // Top 5 recent contest rooms
+    GET_ROOM_DASHBOARD_DATA: 'http://localhost:8092/api/contests/room/{contestCode}/dashboard-data', // Detailed room data
+    GET_USER_SUBMISSIONS: 'http://localhost:8092/api/contests/{contestCode}/submissions' // User's submissions for a contest
   }
 };
 

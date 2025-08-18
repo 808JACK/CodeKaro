@@ -15,11 +15,11 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-@Document(collection="chat_messages")
+// @Document(collection="chat_messages") - Disabled for PostgreSQL-only setup
 public class ChatMessage {
     @Id
     private String id;
-    @Indexed
+    // @Indexed - Disabled for PostgreSQL-only setup
     private Long roomId;
     private Long userId;
     private String username;

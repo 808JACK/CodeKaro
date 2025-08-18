@@ -8,6 +8,7 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="demo" />
+        <module name="demo (1)" />
       </profile>
       <profile name="Annotation profile for Eureka Server" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
@@ -17,7 +18,17 @@
           <entry name="$MAVEN_REPOSITORY$/org/springframework/boot/spring-boot-configuration-processor/3.5.0/spring-boot-configuration-processor-3.5.0.jar" />
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.38/lombok-1.18.38.jar" />
         </processorPath>
+        <module name="demo (4)" />
+      </profile>
+      <profile name="Annotation profile for Problem Management" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.38/lombok-1.18.38.jar" />
+        </processorPath>
         <module name="demo (2)" />
+        <module name="demo (5)" />
       </profile>
       <profile name="Annotation profile for collab" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
@@ -25,9 +36,8 @@
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.38/lombok-1.18.38.jar" />
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.38/lombok-1.18.38.jar" />
         </processorPath>
-        <module name="demo (1)" />
-        <module name="demo (4)" />
         <module name="demo (3)" />
       </profile>
     </annotationProcessing>
@@ -39,6 +49,7 @@
       <module name="demo (2)" options="-parameters" />
       <module name="demo (3)" options="-parameters" />
       <module name="demo (4)" options="-parameters" />
+      <module name="demo (5)" options="-parameters" />
     </option>
   </component>
 </project>

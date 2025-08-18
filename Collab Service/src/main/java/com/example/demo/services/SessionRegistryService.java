@@ -10,13 +10,18 @@
 package com.example.demo.services;
 
 import com.example.demo.dtos.ParticipantDto;
+import com.example.demo.entities.Room;
+import com.example.demo.entities.RoomStatus;
+import com.example.demo.repos.RoomRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.Generated;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -25,6 +30,9 @@ public class SessionRegistryService {
     private static final Logger log = LoggerFactory.getLogger(SessionRegistryService.class);
     private final Map<String, Map<Long, ParticipantDto>> roomParticipants = new ConcurrentHashMap<String, Map<Long, ParticipantDto>>();
     private final Map<Long, String> userToRoom = new ConcurrentHashMap<Long, String>();
+    
+    @Autowired
+    private RoomRepository roomRepository;
 
     public void userJoined(String roomCode, Long userId, String userName, String userColor) {
         try {
@@ -32,6 +40,10 @@ public class SessionRegistryService {
             ParticipantDto participant = ParticipantDto.builder().userId(userId).userName(userName).userColor(userColor).joinedAt(currentTime).lastActiveAt(currentTime).isActive(true).build();
             this.roomParticipants.computeIfAbsent(roomCode, k -> new ConcurrentHashMap()).put(userId, participant);
             this.userToRoom.put(userId, roomCode);
+            
+            // Increment participant count in database
+            incrementRoomParticipantCount(roomCode);
+            
             log.info("User {} joined room {}", (Object)userId, (Object)roomCode);
         }
         catch (Exception e) {
@@ -45,8 +57,14 @@ public class SessionRegistryService {
             Map<Long, ParticipantDto> participants = this.roomParticipants.get(roomCode);
             if (participants != null) {
                 participants.remove(userId);
+                
+                // Decrement participant count in database
+                decrementRoomParticipantCount(roomCode);
+                
                 if (participants.isEmpty()) {
                     this.roomParticipants.remove(roomCode);
+                    // Room is now empty, mark it as archived
+                    markRoomAsArchived(roomCode);
                 }
             }
             this.userToRoom.remove(userId);
@@ -124,6 +142,56 @@ public class SessionRegistryService {
         }
         catch (Exception e) {
             log.error("Error clearing all sessions: {}", (Object)e.getMessage(), (Object)e);
+        }
+    }
+
+    private void incrementRoomParticipantCount(String roomCode) {
+        try {
+            Optional<Room> roomOpt = roomRepository.findByInviteCode(roomCode);
+            if (roomOpt.isPresent()) {
+                Room room = roomOpt.get();
+                room.setParticipantCount(room.getParticipantCount() + 1);
+                roomRepository.save(room);
+                log.debug("Incremented participant count for room {} to {}", roomCode, room.getParticipantCount());
+            }
+        } catch (Exception e) {
+            log.error("Error incrementing participant count for room {}: {}", roomCode, e.getMessage(), e);
+        }
+    }
+
+    private void decrementRoomParticipantCount(String roomCode) {
+        try {
+            Optional<Room> roomOpt = roomRepository.findByInviteCode(roomCode);
+            if (roomOpt.isPresent()) {
+                Room room = roomOpt.get();
+                int newCount = Math.max(0, room.getParticipantCount() - 1);
+                room.setParticipantCount(newCount);
+                
+                if (newCount == 0) {
+                    room.setStatus(RoomStatus.ARCHIVED);
+                    log.info("Room {} marked as archived - participant count reached 0", roomCode);
+                }
+                
+                roomRepository.save(room);
+                log.debug("Decremented participant count for room {} to {}", roomCode, newCount);
+            }
+        } catch (Exception e) {
+            log.error("Error decrementing participant count for room {}: {}", roomCode, e.getMessage(), e);
+        }
+    }
+
+    private void markRoomAsArchived(String roomCode) {
+        try {
+            Optional<Room> roomOpt = roomRepository.findByInviteCode(roomCode);
+            if (roomOpt.isPresent()) {
+                Room room = roomOpt.get();
+                room.setStatus(RoomStatus.ARCHIVED);
+                room.setParticipantCount(0);
+                roomRepository.save(room);
+                log.info("Room {} marked as archived - all participants left", roomCode);
+            }
+        } catch (Exception e) {
+            log.error("Error marking room {} as archived: {}", roomCode, e.getMessage(), e);
         }
     }
 

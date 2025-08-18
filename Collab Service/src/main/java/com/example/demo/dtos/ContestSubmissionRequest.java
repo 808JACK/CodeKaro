@@ -10,9 +10,14 @@ import lombok.Generated;
 
 public class ContestSubmissionRequest {
     private String contestCode;
+    private Long contestId;
+    private Long userId;
+    private String userName;
     private Long problemId;
+    private String problemTitle;
     private String code;
     private String language;
+    private Long timeFromStartMs;
 
     @Generated
     public static ContestSubmissionRequestBuilder builder() {
@@ -40,6 +45,31 @@ public class ContestSubmissionRequest {
     }
 
     @Generated
+    public Long getContestId() {
+        return this.contestId;
+    }
+
+    @Generated
+    public Long getUserId() {
+        return this.userId;
+    }
+
+    @Generated
+    public String getUserName() {
+        return this.userName;
+    }
+
+    @Generated
+    public String getProblemTitle() {
+        return this.problemTitle;
+    }
+
+    @Generated
+    public Long getTimeFromStartMs() {
+        return this.timeFromStartMs;
+    }
+
+    @Generated
     public void setContestCode(String contestCode) {
         this.contestCode = contestCode;
     }
@@ -57,6 +87,31 @@ public class ContestSubmissionRequest {
     @Generated
     public void setLanguage(String language) {
         this.language = language;
+    }
+
+    @Generated
+    public void setContestId(Long contestId) {
+        this.contestId = contestId;
+    }
+
+    @Generated
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    @Generated
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
+
+    @Generated
+    public void setProblemTitle(String problemTitle) {
+        this.problemTitle = problemTitle;
+    }
+
+    @Generated
+    public void setTimeFromStartMs(Long timeFromStartMs) {
+        this.timeFromStartMs = timeFromStartMs;
     }
 
     @Generated
@@ -121,11 +176,16 @@ public class ContestSubmissionRequest {
     }
 
     @Generated
-    public ContestSubmissionRequest(String contestCode, Long problemId, String code, String language) {
+    public ContestSubmissionRequest(String contestCode, Long contestId, Long userId, String userName, Long problemId, String problemTitle, String code, String language, Long timeFromStartMs) {
         this.contestCode = contestCode;
+        this.contestId = contestId;
+        this.userId = userId;
+        this.userName = userName;
         this.problemId = problemId;
+        this.problemTitle = problemTitle;
         this.code = code;
         this.language = language;
+        this.timeFromStartMs = timeFromStartMs;
     }
 
     @Generated
@@ -133,11 +193,21 @@ public class ContestSubmissionRequest {
         @Generated
         private String contestCode;
         @Generated
+        private Long contestId;
+        @Generated
+        private Long userId;
+        @Generated
+        private String userName;
+        @Generated
         private Long problemId;
+        @Generated
+        private String problemTitle;
         @Generated
         private String code;
         @Generated
         private String language;
+        @Generated
+        private Long timeFromStartMs;
 
         @Generated
         ContestSubmissionRequestBuilder() {
@@ -168,8 +238,38 @@ public class ContestSubmissionRequest {
         }
 
         @Generated
+        public ContestSubmissionRequestBuilder contestId(Long contestId) {
+            this.contestId = contestId;
+            return this;
+        }
+
+        @Generated
+        public ContestSubmissionRequestBuilder userId(Long userId) {
+            this.userId = userId;
+            return this;
+        }
+
+        @Generated
+        public ContestSubmissionRequestBuilder userName(String userName) {
+            this.userName = userName;
+            return this;
+        }
+
+        @Generated
+        public ContestSubmissionRequestBuilder problemTitle(String problemTitle) {
+            this.problemTitle = problemTitle;
+            return this;
+        }
+
+        @Generated
+        public ContestSubmissionRequestBuilder timeFromStartMs(Long timeFromStartMs) {
+            this.timeFromStartMs = timeFromStartMs;
+            return this;
+        }
+
+        @Generated
         public ContestSubmissionRequest build() {
-            return new ContestSubmissionRequest(this.contestCode, this.problemId, this.code, this.language);
+            return new ContestSubmissionRequest(this.contestCode, this.contestId, this.userId, this.userName, this.problemId, this.problemTitle, this.code, this.language, this.timeFromStartMs);
         }
 
         @Generated

@@ -8,10 +8,10 @@
 package com.example.demo.repos;
 
 import com.example.demo.entities.UserRecentRooms;
-import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public interface UserRecentRoomsRepository
-extends MongoRepository<UserRecentRooms, Long> {
+extends JpaRepository<UserRecentRooms, Long> {
 }

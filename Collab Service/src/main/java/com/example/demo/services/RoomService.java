@@ -66,6 +66,9 @@ public class RoomService {
     public RoomDetailsResponse getRoomDetails(String inviteCode, Long userId) {
         try {
             Room room = this.roomRepository.findByInviteCode(inviteCode).orElseThrow(() -> new RoomNotFoundException("Room not found with code: " + inviteCode));
+            if (room.getStatus() == RoomStatus.ARCHIVED) {
+                throw new RoomNotFoundException("Room has ended");
+            }
             if (room.getStatus() != RoomStatus.ACTIVE) {
                 throw new RoomNotFoundException("Room is not active");
             }

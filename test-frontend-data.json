@@ -1,0 +1,11 @@
+{
+  "code": "public class Solution {\n    public int[] twoSum(int[] nums, int target) {\n        // Your solution here\n        return new int[]{0, 1};\n    }\n}",
+  "language": "java",
+  "problemId": 1,
+  "problemName": "Two Sum",
+  "userId": 123,
+  "userName": "testuser",
+  "timeFromStartMs": 1800000,
+  "timeLimitMs": 5000,
+  "memoryLimitMb": 256
+}

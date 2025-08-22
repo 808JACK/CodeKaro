@@ -24,6 +24,11 @@ import io.minio.ListObjectsArgs;
 import io.minio.MinioClient;
 import io.minio.Result;
 import io.minio.messages.Item;
+import io.minio.BucketExistsArgs;
+import io.minio.MakeBucketArgs;
+import io.minio.PutObjectArgs;
+import io.minio.StatObjectArgs;
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +50,50 @@ public class MinIOService {
 
     public MinIOService(@Value(value="${minio.url:http://localhost:9000}") String minioUrl, @Value(value="${minio.access-key:minioadmin}") String accessKey, @Value(value="${minio.secret-key:minioadmin}") String secretKey) {
         this.minioClient = MinioClient.builder().endpoint(minioUrl).credentials(accessKey, secretKey).build();
+    }
+
+    public void ensureBucket() {
+        try {
+            boolean exists = this.minioClient.bucketExists(
+                BucketExistsArgs.builder().bucket(this.testCasesBucket).build()
+            );
+            if (!exists) {
+                this.minioClient.makeBucket(
+                    MakeBucketArgs.builder().bucket(this.testCasesBucket).build()
+                );
+                log.info("Created MinIO bucket: {}", (Object) this.testCasesBucket);
+            }
+        } catch (Exception e) {
+            log.error("Error ensuring bucket {}: {}", new Object[]{this.testCasesBucket, e.getMessage(), e});
+        }
+    }
+
+    public boolean objectExists(String objectName) {
+        try {
+            this.minioClient.statObject(
+                StatObjectArgs.builder().bucket(this.testCasesBucket).object(objectName).build()
+            );
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public void uploadText(String objectName, String content) {
+        try {
+            byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+            this.minioClient.putObject(
+                PutObjectArgs.builder()
+                    .bucket(this.testCasesBucket)
+                    .object(objectName)
+                    .stream(new ByteArrayInputStream(bytes), bytes.length, -1)
+                    .contentType("text/plain")
+                    .build()
+            );
+            log.info("Uploaded testcases to {}/{}", (Object) this.testCasesBucket, (Object) objectName);
+        } catch (Exception e) {
+            log.error("Failed uploading {}: {}", new Object[]{objectName, e.getMessage(), e});
+        }
     }
 
     public List<String> getTestCaseInputs(String problemName) {

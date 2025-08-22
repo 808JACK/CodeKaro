@@ -250,6 +250,26 @@ public class SubmissionService {
     }
     
     /**
+     * Get unique user IDs who have participated in a specific contest
+     * Used for calculating total participants in a contest
+     */
+    public List<Long> getContestParticipantUserIds(Long contestId) {
+        try {
+            List<ContestSubmission> submissions = contestSubmissionRepository.findByContestId(contestId);
+            
+            // Get unique user IDs from submissions
+            return submissions.stream()
+                .map(ContestSubmission::getUserId)
+                .distinct()
+                .collect(Collectors.toList());
+                
+        } catch (Exception e) {
+            log.error("Error getting contest participant user IDs: {}", e.getMessage(), e);
+            return new ArrayList<>();
+        }
+    }
+
+    /**
      * Get last activity time for user in a specific contest
      */
     public String getLastActivityTime(Long userId, Long contestId) {

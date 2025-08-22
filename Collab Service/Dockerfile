@@ -4,6 +4,13 @@ FROM openjdk:21-jdk-slim
 # Set the working directory inside the container
 WORKDIR /app
 
+# Install docker client (to allow the service to exec docker on host via mounted socket)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       ca-certificates curl gnupg \
+       docker.io \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy Maven wrapper and pom.xml files
 COPY mvnw* pom.xml ./
 COPY .mvn .mvn

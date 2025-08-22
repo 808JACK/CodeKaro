@@ -8,6 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User, Edit, Save, X, Calendar, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AuthService } from '@/services/authService';
+import { fetchWithAuth } from "@/services/apiClient";
+import { API_CONFIG } from '../config/api';
 
 const Profile = () => {
   const { toast } = useToast();
@@ -15,83 +17,135 @@ const Profile = () => {
   const [userInfo, setUserInfo] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [formData, setFormData] = useState({
-    username: '',
-    displayName: '',
-    email: '',
-    bio: '',
-    customStatus: ''
+    username: "",
+    displayName: "",
+    email: "",
+    bio: "",
+    customStatus: "",
   });
 
-  // Load user data on component mount
+  // Load user data from localStorage first, then refresh from backend
   useEffect(() => {
-    const loadUserData = () => {
+    const loadUserData = async () => {
       const storedUserInfo = AuthService.getStoredUserInfo();
       const storedProfile = AuthService.getStoredUserProfile();
-      
+
       if (storedUserInfo) {
         setUserInfo(storedUserInfo);
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          username: storedUserInfo.username || '',
-          email: storedUserInfo.email || ''
+          username: storedUserInfo.username || "",
+          email: storedUserInfo.email || "",
         }));
       }
-      
+
       if (storedProfile) {
         setUserProfile(storedProfile);
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          displayName: storedProfile.displayName || '',
-          bio: storedProfile.bio || '',
-          customStatus: storedProfile.customStatus || ''
+          displayName: storedProfile.displayName || "",
+          bio: storedProfile.bio || "",
+          customStatus: storedProfile.customStatus || "",
         }));
+      }
+
+      // Fetch latest profile from backend
+      try {
+        if (storedUserInfo?.userId) {
+          const result = await fetchWithAuth(
+            `${API_CONFIG.PROFILE.GET_PROFILE}/${storedUserInfo.userId}`
+          );
+          if (result?.data) {
+            setUserProfile(result.data);
+            setFormData((prev) => ({
+              ...prev,
+              displayName: result.data.displayName || "",
+              bio: result.data.bio || "",
+              customStatus: result.data.customStatus || "",
+            }));
+            localStorage.setItem(
+              "userProfile",
+              JSON.stringify(result.data)
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Failed to refresh profile from backend:", error);
       }
     };
 
     loadUserData();
   }, []);
 
-  const handleSave = () => {
-    // TODO: Implement profile update API call
-    setIsEditing(false);
-    toast({
-      title: "Profile updated",
-      description: "Your profile has been updated successfully."
-    });
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
+  const handleSave = async () => {
+    if (!userInfo?.userId) return;
+    try {
+      const backendData = {
+        username: formData.username,
+        displayName: formData.displayName,
+        email: formData.email,
+        bio: formData.bio,
+        customStatus: formData.customStatus,
+      };
+
+      const result = await fetchWithAuth(
+        `${API_CONFIG.PROFILE.UPDATE_PROFILE}/${userInfo.userId}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(backendData),
+        }
+      );
+
+      if (result?.data) {
+        setUserProfile(result.data);
+        localStorage.setItem("userProfile", JSON.stringify(result.data));
+      }
+
+      setIsEditing(false);
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully.",
+      });
+    } catch (error) {
+      console.error("Profile update failed:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update profile.",
+      });
+    }
   };
 
   const handleCancel = () => {
-    // Reset form data to current values
     if (userInfo) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        username: userInfo.username || '',
-        email: userInfo.email || ''
+        username: userInfo.username || "",
+        email: userInfo.email || "",
       }));
     }
     if (userProfile) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        displayName: userProfile.displayName || '',
-        bio: userProfile.bio || '',
-        customStatus: userProfile.customStatus || ''
+        displayName: userProfile.displayName || "",
+        bio: userProfile.bio || "",
+        customStatus: userProfile.customStatus || "",
       }));
     }
     setIsEditing(false);
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }));
   };
 
   const handleLogout = () => {
     AuthService.logout();
     toast({
       title: "Logged out",
-      description: "You have been logged out successfully."
+      description: "You have been logged out successfully.",
     });
   };
 
@@ -103,14 +157,21 @@ const Profile = () => {
         <Button variant="ghost" size="sm" className="flex items-center gap-2">
           <Avatar className="h-6 w-6">
             {userProfile?.avatarUrl ? (
-              <AvatarImage src={`http://localhost:8086${userProfile.avatarUrl}`} alt={userProfile.displayName} />
+              <AvatarImage
+                src={`http://localhost:8086${userProfile.avatarUrl}`}
+                alt={userProfile.displayName}
+              />
             ) : (
               <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                {(userProfile?.displayName || userInfo?.username || 'U').charAt(0).toUpperCase()}
+                {(userProfile?.displayName || userInfo?.username || "U")
+                  .charAt(0)
+                  .toUpperCase()}
               </AvatarFallback>
             )}
           </Avatar>
-          <span className="hidden md:inline">{userProfile?.displayName || userInfo?.username || 'User'}</span>
+          <span className="hidden md:inline">
+            {userProfile?.displayName || userInfo?.username || "User"}
+          </span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
@@ -123,22 +184,31 @@ const Profile = () => {
             Manage your account information and preferences.
           </DialogDescription>
         </DialogHeader>
-        
+
         <Card>
           <CardHeader className="text-center pb-2">
             <Avatar className="h-20 w-20 mx-auto mb-4">
               {userProfile?.avatarUrl ? (
-                <AvatarImage src={`http://localhost:8086${userProfile.avatarUrl}`} alt={userProfile.displayName} />
+                <AvatarImage
+                  src={`http://localhost:8086${userProfile.avatarUrl}`}
+                  alt={userProfile.displayName}
+                />
               ) : (
                 <AvatarFallback className="text-2xl bg-gradient-primary text-primary-foreground">
-                  {(userProfile?.displayName || userInfo?.username || 'U').charAt(0).toUpperCase()}
+                  {(userProfile?.displayName || userInfo?.username || "U")
+                    .charAt(0)
+                    .toUpperCase()}
                 </AvatarFallback>
               )}
             </Avatar>
-            <CardTitle className="text-xl">{userProfile?.displayName || userInfo?.username || 'User'}</CardTitle>
-            <CardDescription>@{userInfo?.username || 'username'}</CardDescription>
+            <CardTitle className="text-xl">
+              {userProfile?.displayName || userInfo?.username || "User"}
+            </CardTitle>
+            <CardDescription>
+              @{userInfo?.username || "username"}
+            </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="space-y-4">
             {isEditing ? (
               <div className="space-y-4">
@@ -152,7 +222,7 @@ const Profile = () => {
                     placeholder="Username"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="displayName">Display Name</Label>
                   <Input
@@ -163,7 +233,7 @@ const Profile = () => {
                     placeholder="Display Name"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -175,13 +245,17 @@ const Profile = () => {
                     placeholder="Email"
                   />
                 </div>
-                
+
                 <div className="flex gap-2">
                   <Button onClick={handleSave} className="flex-1">
                     <Save className="h-4 w-4 mr-2" />
                     Save
                   </Button>
-                  <Button onClick={handleCancel} variant="outline" className="flex-1">
+                  <Button
+                    onClick={handleCancel}
+                    variant="outline"
+                    className="flex-1"
+                  >
                     <X className="h-4 w-4 mr-2" />
                     Cancel
                   </Button>
@@ -190,41 +264,42 @@ const Profile = () => {
             ) : (
               <div className="space-y-4">
                 <div className="space-y-4">
-                  {/* Display Name and Username */}
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <div className="text-muted-foreground">Display Name</div>
-                      <div className="font-medium">{userProfile?.displayName || 'Not set'}</div>
+                      <div className="font-medium">
+                        {userProfile?.displayName || "Not set"}
+                      </div>
                     </div>
                     <div>
                       <div className="text-muted-foreground">Username</div>
-                      <div className="font-medium">@{userInfo?.username || 'username'}</div>
+                      <div className="font-medium">
+                        @{userInfo?.username || "username"}
+                      </div>
                     </div>
                   </div>
-                  
-                  {/* Email */}
+
                   <div className="text-sm">
                     <div className="text-muted-foreground">Email</div>
-                    <div className="font-medium">{userInfo?.email || 'Not set'}</div>
+                    <div className="font-medium">
+                      {userInfo?.email || "Not set"}
+                    </div>
                   </div>
-                  
-                  {/* Bio */}
+
                   {userProfile?.bio && (
                     <div className="text-sm">
                       <div className="text-muted-foreground">Bio</div>
                       <div className="font-medium">{userProfile.bio}</div>
                     </div>
                   )}
-                  
-                  {/* Custom Status */}
+
                   {userProfile?.customStatus && (
                     <div className="text-sm">
                       <div className="text-muted-foreground">Status</div>
                       <div className="font-medium">{userProfile.customStatus}</div>
                     </div>
                   )}
-                  
-                  {/* Joined Date */}
+
                   {userProfile?.createdAt && (
                     <div className="text-sm">
                       <div className="text-muted-foreground">Joined</div>
@@ -235,19 +310,19 @@ const Profile = () => {
                     </div>
                   )}
                 </div>
-                
+
                 <div className="flex gap-2 pt-4">
-                  <Button 
-                    onClick={() => setIsEditing(true)} 
-                    variant="outline" 
+                  <Button
+                    onClick={() => setIsEditing(true)}
+                    variant="outline"
                     className="flex-1"
                   >
                     <Edit className="h-4 w-4 mr-2" />
                     Edit Profile
                   </Button>
-                  <Button 
-                    onClick={handleLogout} 
-                    variant="destructive" 
+                  <Button
+                    onClick={handleLogout}
+                    variant="destructive"
                     className="flex-1"
                   >
                     Logout

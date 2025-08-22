@@ -1,6 +1,7 @@
 package com.example.demo.Controllers;
 
 import com.example.demo.Dtos.LoginResponseDto;
+import com.example.demo.Services.AuthServiceImpl;
 import com.example.demo.Services.RefreshTokenService;
 import com.example.demo.Services.JwtService;
 import lombok.RequiredArgsConstructor;
@@ -9,13 +10,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/token")
+@RequestMapping("/auth")
 @RequiredArgsConstructor
 @Slf4j
 public class TokenController {
 
     private final RefreshTokenService refreshTokenService;
     private final JwtService jwtService;
+    private final AuthServiceImpl authService;
 
     @PostMapping("/refresh")
     public ResponseEntity<LoginResponseDto> refreshToken(@RequestHeader("Authorization") String refreshToken) {
@@ -93,6 +95,11 @@ public class TokenController {
             log.error("Error validating tokens: {}", e.getMessage());
             return ResponseEntity.ok(false);
         }
+    }
+
+    @GetMapping("/refreshAT/{userId}")
+    public ResponseEntity<String> refreshAT(@PathVariable Long userId) {
+        return ResponseEntity.ok(authService.refreshAT(userId));
     }
 
     public record UserInfo(String id, String email) {}

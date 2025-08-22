@@ -1,5 +1,6 @@
 import { API_CONFIG, STORAGE_KEYS } from '../config/api';
 import { AuthService } from './authService';
+import {fetchWithAuth} from './apiClient'
 
 // Types
 export interface Topic {
@@ -97,127 +98,102 @@ export interface RecentRoom {
 export class ContestService {
   // Get all topics
   static async getTopics(): Promise<Topic[]> {
-    try {
-      const response = await fetch(API_CONFIG.PROBLEM.GET_TOPICS);
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to fetch topics');
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Get topics error:', error);
-      throw error;
-    }
+  try {
+    const result = await fetchWithAuth(API_CONFIG.PROBLEM.GET_TOPICS);
+    return result;
+  } catch (error) {
+    console.error('Get topics error:', error);
+    throw error;
   }
+}
 
   // Get problems by topic
-  static async getProblemsByTopic(topicId: number): Promise<Problem[]> {
-    try {
-      const response = await fetch(`${API_CONFIG.PROBLEM.GET_PROBLEMS_BY_TOPIC}/${topicId}`);
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to fetch problems');
-      }
+    static async getProblemsByTopic(topicId: number): Promise<Problem[]> {
+    const url = `${API_CONFIG.PROBLEM.GET_PROBLEMS_BY_TOPIC}/${topicId}`;
 
+    try {
+      const result = await fetchWithAuth(url);
       return result;
-    } catch (error) {
-      console.error('Get problems error:', error);
-      throw error;
+    } catch (error: unknown) {
+      // Narrow type safely
+      if (error instanceof Error) {
+        console.error("API fetch error:", error.message);
+        throw error;
+      } else {
+        console.error("Unknown API error:", error);
+        throw new Error("Unknown API error");
+      }
     }
   }
 
   // Get problem details
-  static async getProblemDetails(problemId: number, language: string = 'python'): Promise<ProblemDetails> {
-    try {
-      const url = `${API_CONFIG.PROBLEM.GET_PROBLEM_DETAILS}/${problemId}?language=${language}`;
-      console.log('Fetching problem details from:', url);
-      
-      const response = await fetch(url);
-      const result = await response.json();
-      
-      console.log('Problem details response:', result);
-      
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to fetch problem details');
-      }
+    static async getProblemDetails(problemId: number, language: string = 'python'): Promise<ProblemDetails> {
+    const url = `${API_CONFIG.PROBLEM.GET_PROBLEM_DETAILS}/${problemId}?language=${language}`;
+    console.log('Fetching problem details from:', url);
 
+    try {
+      const result = await fetchWithAuth(url);
+      console.log('Problem details response:', result);
       return result;
-    } catch (error) {
-      console.error('Get problem details error:', error);
-      throw error;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Get problem details error:', error.message);
+        throw error;
+      } else {
+        console.error('Unknown get problem details error:', error);
+        throw new Error('Unknown error occurred while fetching problem details');
+      }
     }
   }
 
   // Create contest
-  static async createContest(contestData: CreateContestRequest): Promise<ContestDetails> {
+    static async createContest(contestData: CreateContestRequest): Promise<ContestDetails> {
     try {
       const userInfo = AuthService.getStoredUserInfo();
-      
-      if (!userInfo?.userId) {
-        throw new Error('No user info found');
-      }
+      if (!userInfo?.userId) throw new Error('No user info found');
 
-      // Transform the data to match backend expectations
+      // Transform frontend data to match backend
       const backendData = {
         name: contestData.title,
         description: contestData.description,
         problemIds: contestData.problemIds,
         durationMinutes: contestData.duration,
         maxParticipants: contestData.maxParticipants,
-        isPublic: true
+        isPublic: true,
       };
 
-      console.log('=== CONTEST CREATION DEBUG ===');
-      console.log('Frontend contest data:', contestData);
-      console.log('Backend data being sent:', backendData);
-      console.log('API endpoint:', API_CONFIG.CONTEST.CREATE);
-      console.log('User ID:', userInfo.userId);
-      console.log('Request headers:', {
-        'X-User-Id': userInfo.userId.toString(),
-        'Content-Type': 'application/json',
-      });
+      console.log('Creating contest with data:', backendData);
 
-      const response = await fetch(API_CONFIG.CONTEST.CREATE, {
+      const result = await fetchWithAuth(API_CONFIG.CONTEST.CREATE, {
         method: 'POST',
         headers: {
           'X-User-Id': userInfo.userId.toString(),
-          'Content-Type': 'application/json',
         },
         body: JSON.stringify(backendData),
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
-
-      const result = await response.json();
-      console.log('Backend response:', result);
-      console.log('Response problemIds:', result.problemIds);
-      console.log('Response inviteCode:', result.inviteCode);
-      
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to create contest');
+      // Map backend response to frontend interface
+      return {
+        id: result.inviteCode,
+        title: contestData.title,
+        description: contestData.description,
+        startTime: new Date().toISOString(),
+        endTime: new Date(Date.now() + contestData.duration * 60 * 1000).toISOString(),
+        duration: contestData.duration,
+        problemIds: contestData.problemIds,
+        maxParticipants: contestData.maxParticipants,
+        currentParticipants: 1,
+        status: 'ONGOING' as const,
+        createdBy: userInfo.userId,
+      };
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Create contest error:', error.message);
+        throw error;
+      } else {
+        console.error('Unknown create contest error:', error);
+        throw new Error('Unknown error occurred while creating contest');
       }
-
-             // Transform the response to match our frontend interface
-       return {
-         id: result.inviteCode, // Use inviteCode as ID
-         title: contestData.title,
-         description: contestData.description,
-         startTime: new Date().toISOString(),
-         endTime: new Date(Date.now() + contestData.duration * 60 * 1000).toISOString(),
-         duration: contestData.duration,
-         problemIds: contestData.problemIds,
-         maxParticipants: contestData.maxParticipants,
-         currentParticipants: 1,
-         status: 'ONGOING' as const,
-         createdBy: userInfo.userId
-       };
-    } catch (error) {
-      console.error('Create contest error:', error);
-      throw error;
     }
   }
 
@@ -240,11 +216,10 @@ export class ContestService {
       const url = API_CONFIG.CONTEST.JOIN.replace('{contestId}', contestId);
       console.log('Joining contest at:', url);
 
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method: 'POST',
         headers: {
           'X-User-Id': userInfo.userId.toString(),
-          'Content-Type': 'application/json',
         },
       });
 
@@ -284,11 +259,10 @@ export class ContestService {
       const url = API_CONFIG.CONTEST.GET_DETAILS.replace('{contestId}', contestId);
       console.log('Fetching contest details from:', url);
 
-      const response = await fetch(url, {
+      const response = await fetchWithAuth(url, {
         method: 'GET',
         headers: {
           'X-User-Id': userInfo.userId.toString(),
-          'Content-Type': 'application/json',
         },
       });
 
@@ -374,11 +348,8 @@ export class ContestService {
       
       const startTime = Date.now();
       
-      const response = await fetch(API_CONFIG.CONTEST.RUN_CODE, {
+      const response = await fetchWithAuth(API_CONFIG.CONTEST.RUN_CODE, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(enhancedRequest),
       });
 
@@ -414,9 +385,9 @@ export class ContestService {
       return result;
     } catch (error: unknown) {
       console.error('=== RUN CODE ERROR ===');
-      console.error('Error type:', error.constructor.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+      console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       console.error('Full error object:', error);
       throw error;
     }
@@ -466,11 +437,8 @@ export class ContestService {
       
       const startTime = Date.now();
 
-      const response = await fetch(submitUrl, {
+      const response = await fetchWithAuth(submitUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(enhancedRequest),
       });
 
@@ -506,49 +474,12 @@ export class ContestService {
       return result;
     } catch (error: unknown) {
       console.error('=== SUBMIT CODE ERROR ===');
-      console.error('Error type:', error.constructor.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+      console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       console.error('Full error object:', error);
       throw error;
     }
   }
 
-  // Get recent rooms
-  static async getRecentRooms(): Promise<RecentRoom[]> {
-    try {
-      const userInfo = AuthService.getStoredUserInfo();
-      
-      if (!userInfo?.userId) {
-        throw new Error('No user info found');
-      }
-
-      console.log('=== FETCHING RECENT ROOMS ===');
-      console.log('API Endpoint:', API_CONFIG.CONTEST.GET_RECENT_ROOMS);
-      console.log('User ID:', userInfo.userId);
-
-      const response = await fetch(API_CONFIG.CONTEST.GET_RECENT_ROOMS, {
-        method: 'GET',
-        headers: {
-          'X-User-Id': userInfo.userId.toString(),
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
-
-      const result = await response.json();
-      console.log('Recent rooms response:', result);
-      
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to fetch recent rooms');
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Get recent rooms error:', error);
-      throw error;
-    }
-  }
 }

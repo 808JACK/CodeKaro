@@ -42,11 +42,4 @@ public class AuthController {
         ApiResponse<LoginResponseDto> response1 = authServiceInterface.login(loginRequest,response);
         return ResponseEntity.ok(response1);
     }
-
-    @PostMapping("/refreshAccessToken")
-    public ResponseEntity<ApiResponse<String>> refreshAccessToken(
-            @CookieValue(value = "token", required = false) String token){
-        ApiResponse<String> response = authServiceInterface.refreshAccessToken(token);
-        return ResponseEntity.ok(response);
-    }
 }

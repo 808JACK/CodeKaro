@@ -15,7 +15,7 @@ import org.bson.Document;
 @RestController
 @RequestMapping("/api/mongo-test")
 @Slf4j
-@CrossOrigin(origins = "*")
+
 public class MongoTestController {
 
     @Autowired(required = false)

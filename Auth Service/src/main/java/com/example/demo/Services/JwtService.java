@@ -1,23 +1,23 @@
 package com.example.demo.Services;
 
+import com.example.demo.Dtos.ApiResponse;
+import com.example.demo.Entities.RefreshToken;
 import com.example.demo.Entities.User;
+import com.example.demo.Exception.ResourceNotFoundException;
 import com.example.demo.Repo.AuthRepo;
+import com.example.demo.Repo.RefreshTokenRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -25,6 +25,8 @@ import java.util.Map;
 public class JwtService {
 
     private final AuthRepo authRepo;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenService refreshTokenService;
 
     @Value("${jwt.secretKey}")
     private String jwtSecretKey;
@@ -120,6 +122,17 @@ public class JwtService {
             log.error("Error getting user from token: {}", e.getMessage());
             throw new RuntimeException("Invalid token");
         }
+    }
+
+    public String generateAccess(String token,Long userId,String userName,String email) {
+        return Jwts.builder()
+                .subject(userId.toString())
+                .claim("username",userName)
+                .claim("email", email)
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + jwtExpiration))
+                .signWith(key())
+                .compact();
     }
 
 }

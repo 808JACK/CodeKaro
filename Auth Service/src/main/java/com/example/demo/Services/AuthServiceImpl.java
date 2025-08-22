@@ -8,6 +8,7 @@ import com.example.demo.Dtos.SignUpReq;
 import com.example.demo.Entities.Profile;
 import com.example.demo.Entities.RefreshToken;
 import com.example.demo.Entities.User;
+import com.example.demo.Exception.ResourceNotFoundException;
 import com.example.demo.Repo.AuthRepo;
 import com.example.demo.Repo.RefreshTokenRepository;
 import com.example.demo.Services.MailService.EmailService;
@@ -137,12 +138,12 @@ public class AuthServiceImpl implements AuthServiceInterface {
 
             // Build response DTO
             LoginResponseDto responseDto = LoginResponseDto.builder()
-                .userId(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .accessToken(accessToken)
-                .refreshToken(refreshToken.getToken())
-                .build();
+                    .userId(user.getId())
+                    .username(user.getUsername())
+                    .email(user.getEmail())
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken.getToken())
+                    .build();
 
             log.info("Login successful for email: {}", loginRequest.getEmail());
             return ApiResponse.success(responseDto, "Login successful.");
@@ -180,4 +181,29 @@ public class AuthServiceImpl implements AuthServiceInterface {
 
         return ApiResponse.success(newAccessToken, "New access token generated");
     }
+
+    public String refreshAT(Long userId) {
+        User user = authRepo.findUserById(userId);
+        if (user == null) {
+            throw new ResourceNotFoundException("No user found");
+        }
+
+        RefreshToken userRefreshToken = refreshTokenRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("No refresh token info"));
+
+        boolean verify = refreshTokenService.verifyExpiration(userRefreshToken);
+
+        if (!verify) {
+            // Instead of throwing, return a unique string
+            return "REFRESH_EXPIRED";
+        }
+
+        return jwtService.generateAccess(
+                userRefreshToken.getToken(),
+                userId,
+                user.getUsername(),
+                user.getEmail()
+        );
+    }
 }
+

@@ -2,8 +2,6 @@ package com.example.demo.Config;
 
 import com.example.demo.Filter.JwtAuthFilter;
 import com.example.demo.Repo.AuthRepo;
-import com.example.demo.Services.AuthServiceImpl;
-import com.example.demo.Services.JwtService;
 import com.example.demo.Services.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -21,15 +19,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import java.util.Arrays;
-import java.util.List;
 
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtService jwtService;
 
     private final PasswordEncoder passwordEncoder;
     private final UserService userService;

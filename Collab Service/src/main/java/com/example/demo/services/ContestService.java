@@ -144,6 +144,26 @@ public class ContestService {
         }
     }
 
+    /**
+     * Get all contests created by a specific user
+     * Used for dashboard to show user's created contests
+     */
+    public List<Contest> getContestsCreatedByUser(Long userId) {
+        try {
+            log.info("Fetching contests created by user: {}", userId);
+            
+            // Find all contests where creatorId matches the given userId
+            List<Contest> userContests = contestRepository.findByCreatorId(userId);
+            
+            log.info("Found {} contests created by user {}", userContests.size(), userId);
+            return userContests;
+            
+        } catch (Exception e) {
+            log.error("Error fetching contests created by user {}: {}", userId, e.getMessage(), e);
+            return new ArrayList<>();
+        }
+    }
+
     private long calculateRemainingTime(Contest contest) {
         ZonedDateTime now = ZonedDateTime.now();
         if (now.isAfter(contest.getEndTime())) {

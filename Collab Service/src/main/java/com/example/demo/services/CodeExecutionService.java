@@ -329,6 +329,13 @@ public class CodeExecutionService {
         return converted;
     }
 
+    private String escapeForPythonString(String raw) {
+        String s = raw.replace("\\", "\\\\");
+        s = s.replace("\"", "\\\"");
+        s = s.replace("\n", "\\n");
+        return s;
+    }
+
     private String createTestRunnerScript(String userCode, List<TestCase> testCases, String problemName) {
         StringBuilder script = new StringBuilder();
         script.append("# User's solution\n");
@@ -382,9 +389,22 @@ public class CodeExecutionService {
     }
 
     private List<TestResult> executeTestCasesDirect(String containerId, String code, List<TestCase> testCases, long timeLimitMs, boolean isSubmit) {
-        // Always use stdin/stdout execution (most robust approach)
+        // Try stdin/stdout execution first
         log.info("Using stdin/stdout execution (most robust approach)");
-        return this.executeTestCasesStdinStdout(containerId, code, testCases, timeLimitMs, isSubmit);
+        List<TestResult> results = this.executeTestCasesStdinStdout(containerId, code, testCases, timeLimitMs, isSubmit);
+        boolean allEmptyOutputs = true;
+        for (TestResult r : results) {
+            String out = r.getOutput();
+            if (out != null && !out.trim().isEmpty()) {
+                allEmptyOutputs = false;
+                break;
+            }
+        }
+        if (allEmptyOutputs) {
+            log.info("Stdin/stdout produced empty outputs. Falling back to function-call execution with parsed parameters.");
+            return this.executeTestCasesWithParameters(containerId, code, testCases, timeLimitMs, isSubmit);
+        }
+        return results;
     }
 
     private List<TestResult> executeTestCasesStdinStdout(String containerId, String code, List<TestCase> testCases, long timeLimitMs, boolean isSubmit) {
@@ -433,9 +453,11 @@ public class CodeExecutionService {
                     continue;
                 }
                 
-                // Compare output
+                // Compare output with boolean normalization (True/true, False/false)
                 String expectedOutput = tc.getExpectedOutput().trim();
-                String verdict = output.equals(expectedOutput) ? "AC" : "WA";
+                String normalizedExpected = this.normalizeOutputForCompare(expectedOutput);
+                String normalizedActual = this.normalizeOutputForCompare(output);
+                String verdict = normalizedActual.equals(normalizedExpected) ? "AC" : "WA";
                 
                 log.debug("Test case {} comparison: expected='{}', actual='{}', verdict='{}'", 
                          i + 1, expectedOutput, output, verdict);
@@ -451,6 +473,26 @@ public class CodeExecutionService {
         return results;
     }
 
+    private String normalizeOutputForCompare(String value) {
+        if (value == null) {
+            return "";
+        }
+        String v = value.trim();
+        // Strip common container chars and replace commas with spaces
+        v = v.replace("[", " ").replace("]", " ").replace("(", " ").replace(")", " ");
+        v = v.replace(",", " ");
+        // Collapse all whitespace to single spaces
+        v = v.replaceAll("\\s+", " ").trim();
+        // Normalize booleans
+        if (v.equalsIgnoreCase("true")) {
+            return "true";
+        }
+        if (v.equalsIgnoreCase("false")) {
+            return "false";
+        }
+        return v;
+    }
+
     private List<TestResult> executeTestCasesWithParameters(String containerId, String code, List<TestCase> testCases, long timeLimitMs, boolean isSubmit) {
         List<TestResult> results = new ArrayList<TestResult>();
         try {
@@ -458,8 +500,69 @@ public class CodeExecutionService {
             StringBuilder script = new StringBuilder();
             script.append(code).append("\n\n");
             script.append("import json\n");
+            // Helpers for output normalization and tree building
+            script.append("def _to_str(x):\n");
+            script.append("    try:\n");
+            script.append("        if isinstance(x, (list, tuple)):\n");
+            script.append("            try:\n");
+            script.append("                return ' '.join(str(int(v)) for v in x)\n");
+            script.append("            except Exception:\n");
+            script.append("                return ' '.join(str(v) for v in x)\n");
+            script.append("        if isinstance(x, bool):\n");
+            script.append("            return 'true' if x else 'false'\n");
+            script.append("        return str(x)\n");
+            script.append("    except Exception:\n");
+            script.append("        return str(x)\n");
+            script.append("class TreeNode:\n");
+            script.append("    def __init__(self, val=0, left=None, right=None):\n");
+            script.append("        self.val = val\n");
+            script.append("        self.left = left\n");
+            script.append("        self.right = right\n");
+            script.append("def _parse_token(t):\n");
+            script.append("    if t is None: return None\n");
+            script.append("    s = str(t).strip()\n");
+            script.append("    if s in ('None','null','NULL','Null'): return None\n");
+            script.append("    try:\n");
+            script.append("        return int(s)\n");
+            script.append("    except Exception:\n");
+            script.append("        return s\n");
+            script.append("def _build_tree(tokens):\n");
+            script.append("    # tokens: list where None marks missing node, level-order\n");
+            script.append("    if not tokens: return None\n");
+            script.append("    tokens = list(tokens)\n");
+            script.append("    root_val = _parse_token(tokens[0])\n");
+            script.append("    if root_val is None: return None\n");
+            script.append("    root = TreeNode(root_val)\n");
+            script.append("    q = [root]\n");
+            script.append("    idx = 1\n");
+            script.append("    while q and idx < len(tokens):\n");
+            script.append("        node = q.pop(0)\n");
+            script.append("        if idx < len(tokens):\n");
+            script.append("            lv = _parse_token(tokens[idx]); idx += 1\n");
+            script.append("            if lv is not None:\n");
+            script.append("                node.left = TreeNode(lv)\n");
+            script.append("                q.append(node.left)\n");
+            script.append("        if idx < len(tokens):\n");
+            script.append("            rv = _parse_token(tokens[idx]); idx += 1\n");
+            script.append("            if rv is not None:\n");
+            script.append("                node.right = TreeNode(rv)\n");
+            script.append("                q.append(node.right)\n");
+            script.append("    return root\n");
             script.append("results = []\n");
             String functionName = this.detectFunctionName(code);
+            // Build dynamic function resolver in Python
+            script.append("__fn = None\n");
+            script.append("__names = [\"").append(functionName).append("\", \"twoSum\", \"two_sum\", \"solution\", \"solve\", \"main\"]\n");
+            script.append("for __name in __names:\n");
+            script.append("    try:\n");
+            script.append("        __c = globals().get(__name)\n");
+            script.append("        if callable(__c):\n");
+            script.append("            __fn = __c\n");
+            script.append("            break\n");
+            script.append("    except Exception:\n");
+            script.append("        pass\n");
+            script.append("if __fn is None:\n");
+            script.append("    raise Exception('No callable function found (expected one of: ' + ', '.join(__names) + ')')\n");
             for (int i = 0; i < testCases.size(); ++i) {
                 TestCase tc = testCases.get(i);
                 String input = tc.getInput();
@@ -470,13 +573,22 @@ public class CodeExecutionService {
                     String paramName = parsedInput.getParameterNames().get(j);
                     script.append("    ").append(varAssignment).append("\n");
                 }
-                script.append("    result = ").append(functionName).append("(");
-                script.append(String.join((CharSequence)", ", parsedInput.getParameterNames()));
-                script.append(")\n");
-                String expectedOutput = this.convertToPythonFormat(tc.getExpectedOutput());
-                script.append("    expected = ").append(expectedOutput).append("\n");
-                script.append("    verdict = 'AC' if result == expected else 'WA'\n");
-                script.append("    results.append({'test': ").append(i + 1).append(", 'verdict': verdict, 'output': str(result), 'expected': str(expected), 'error': ''})\n");
+                if (parsedInput.getParameterNames().size() == 1 && "input_data".equals(parsedInput.getParameterNames().get(0))) {
+                    script.append("    _parts = str(input_data).split()\n");
+                    script.append("    _tokens = [None if p in ('None','null','NULL','Null') else int(p) if p.lstrip('+-').isdigit() else p for p in _parts]\n");
+                    script.append("    _root = _build_tree(_tokens)\n");
+                    script.append("    result = __fn(_root)\n");
+                } else {
+                    script.append("    result = __fn(");
+                    script.append(String.join((CharSequence)", ", parsedInput.getParameterNames()));
+                    script.append(")\n");
+                }
+                String expectedRaw = tc.getExpectedOutput() == null ? "" : tc.getExpectedOutput();
+                String expectedEscaped = this.escapeForPythonString(expectedRaw.trim());
+                script.append("    got = _to_str(result).strip()\n");
+                script.append("    expected = \"").append(expectedEscaped).append("\"\n");
+                script.append("    verdict = 'AC' if got == expected else 'WA'\n");
+                script.append("    results.append({'test': ").append(i + 1).append(", 'verdict': verdict, 'output': got, 'expected': expected, 'error': ''})\n");
                 script.append("except Exception as e:\n");
                 script.append("    results.append({'test': ").append(i + 1).append(", 'verdict': 'RE', 'output': '', 'expected': '").append(tc.getExpectedOutput()).append("', 'error': str(e)})\n");
             }
@@ -737,6 +849,41 @@ public class CodeExecutionService {
     private ParsedInput parseTestCaseInput(String input) {
         ParsedInput parsed = new ParsedInput();
         try {
+            // Handle common two-line format: first line = array numbers, second line = target
+            String[] lines = input.split("\\r?\\n");
+            String firstNonEmpty = null;
+            String secondNonEmpty = null;
+            for (String ln : lines) {
+                String t = ln.trim();
+                if (t.isEmpty()) continue;
+                if (firstNonEmpty == null) {
+                    firstNonEmpty = t;
+                } else {
+                    secondNonEmpty = t;
+                    break;
+                }
+            }
+            if (firstNonEmpty != null && (secondNonEmpty != null || input.contains("\n"))) {
+                // Build Python list from first line numbers
+                String[] nums = firstNonEmpty.split("\\s+");
+                StringBuilder numsList = new StringBuilder();
+                numsList.append("[");
+                boolean first = true;
+                for (String token : nums) {
+                    String tk = token.trim();
+                    if (tk.isEmpty()) continue;
+                    if (!first) numsList.append(", ");
+                    numsList.append(tk);
+                    first = false;
+                }
+                numsList.append("]");
+                parsed.addParameter("nums", "nums = " + numsList.toString());
+                if (secondNonEmpty != null) {
+                    parsed.addParameter("target", "target = " + secondNonEmpty.trim());
+                }
+                return parsed;
+            }
+
             String[] assignments;
             for (String assignment : assignments = input.split(",\\s*(?=\\w+\\s*=)")) {
                 String[] parts;

@@ -1,60 +1,104 @@
-//package com.example.demo.filter;
-//
-//import org.springframework.cloud.gateway.filter.GatewayFilter;
-//import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
-//import org.springframework.http.HttpStatus;
-//import org.springframework.http.server.reactive.ServerHttpRequest;
-//import org.springframework.stereotype.Component;
-//import reactor.core.publisher.Mono;
-//import lombok.extern.slf4j.Slf4j;
-//
-//@Component
-//@Slf4j
-//public class AuthFilter extends AbstractGatewayFilterFactory<AuthFilter.Config> {
-//
-//    public AuthFilter() {
-//        super(Config.class);
-//    }
-//
-//    @Override
-//    public GatewayFilter apply(Config config) {
-//        return (exchange, chain) -> {
-//            String accessToken = exchange.getRequest().getHeaders().getFirst("Authorization");
-//            String refreshToken = exchange.getRequest().getHeaders().getFirst("Refresh-Token");
-//
-//            // Skip auth for public endpoints
-//            String path = exchange.getRequest().getPath().toString();
-//            if (path.startsWith("/auth/") || path.startsWith("/api/v1/token/")) {
-//                return chain.filter(exchange);
-//            }
-//
-//            if (accessToken == null || !accessToken.startsWith("Bearer ") ||
-//                refreshToken == null || !refreshToken.startsWith("Bearer ")) {
-//                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-//                return exchange.getResponse().setComplete();
-//            }
-//
-//            // Forward to auth service for validation
-//            ServerHttpRequest validateRequest = exchange.getRequest().mutate()
-//                .path("/api/v1/token/validate-both")
-//                .method(exchange.getRequest().getMethod())
-//                .build();
-//
-//            return chain.filter(exchange.mutate()
-//                .request(validateRequest)
-//                .build())
-//                .then(chain.filter(exchange.mutate()
-//                    .request(exchange.getRequest())
-//                    .build()))
-//                .onErrorResume(e -> {
-//                    log.error("Error during token validation: {}", e.getMessage());
-//                    exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-//                    return exchange.getResponse().setComplete();
-//                });
-//        };
-//    }
-//
-//    public static class Config {
-//        // Configuration properties if needed
-//    }
-//}
+package com.example.demo.filter;
+
+import com.example.demo.Util.TokenValidation;
+import lombok.RequiredArgsConstructor;
+import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.core.Ordered;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
+import lombok.extern.slf4j.Slf4j;
+
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class AuthFilter implements GlobalFilter, Ordered {
+
+    private final TokenValidation tokenValidation;
+    private final WebClient.Builder webClientBuilder;
+
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+
+        String path = exchange.getRequest().getURI().getPath();
+        HttpMethod method = exchange.getRequest().getMethod();
+        log.info("[AuthFilter] Incoming {} {}", method, path);
+
+        // Handle OPTIONS preflight requests - let them pass through
+        if (HttpMethod.OPTIONS.equals(method)) {
+            return chain.filter(exchange);
+        }
+
+        if (path.startsWith("/auth/login") || path.startsWith("/auth/signup") || path.startsWith("/auth/verify-otp")) {
+            return chain.filter(exchange);
+        }
+
+        // Allow unauthenticated GET access to static uploads
+        if (path.startsWith("/uploads/") && HttpMethod.GET.equals(method)) {
+            return chain.filter(exchange);
+        }
+        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            log.warn("[AuthFilter] Missing or invalid Authorization header for {} {}", method, path);
+            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+            return exchange.getResponse().setComplete();
+        }
+
+        String token = authHeader.substring(7);
+        log.info("[AuthFilter] Token present; validating... {} {}", method, path);
+        if (tokenValidation.isValid(token) && !tokenValidation.isExpired(token)) {
+            System.out.println("goingtotake");
+            log.info("[AuthFilter] Token valid; forwarding {} {}", method, path);
+            System.out.println("expiredandtaking");
+            return chain.filter(exchange); // ✅ valid access token
+        } else {
+            Long userId = tokenValidation.extractUserId(token);
+            if (userId == null) {
+                log.warn("[AuthFilter] Could not extract userId from token; unauthorized {} {}", method, path);
+                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                return exchange.getResponse().setComplete();
+            }
+
+            log.info("[AuthFilter] Access token expired/invalid; attempting refresh for user {}", userId);
+            return webClientBuilder.build()
+                    .get()
+                    .uri("http://AUTH-SERVICE/auth/refreshAT/{userId}", userId)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .flatMap(newAccessToken -> {
+                if ("REFRESH_EXPIRED".equals(newAccessToken)) {
+                    log.warn("[AuthFilter] Refresh token expired for user {}; signaling frontend to login", userId);
+                    // refresh token expired → tell frontend to redirect to login
+                    exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                    exchange.getResponse().getHeaders().set("X-Refresh-Expired", "true");
+                    return exchange.getResponse().setComplete();
+                } else if (newAccessToken != null && !newAccessToken.isBlank()) {
+                    log.info("[AuthFilter] Got new access token; forwarding request {}");
+                    // valid new access token
+                    ServerWebExchange updatedExchange = exchange.mutate()
+                            .request(r -> r.headers(h -> h.set(HttpHeaders.AUTHORIZATION, "Bearer " + newAccessToken)))
+                            .build();
+
+                    exchange.getResponse().getHeaders().set("X-New-Access-Token", newAccessToken);
+                    return chain.filter(updatedExchange);
+                } else {
+                    log.warn("[AuthFilter] Refresh returned empty token; unauthorized {}");
+                    // fallback → unauthorized
+                    exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                    return exchange.getResponse().setComplete();
+                }
+            });
+        }
+    }
+        @Override
+    public int getOrder() {
+        return 1; // Run after CORS filter
+    }
+}

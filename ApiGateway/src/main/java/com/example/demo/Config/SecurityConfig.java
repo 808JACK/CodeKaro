@@ -2,6 +2,8 @@ package com.example.demo.Config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.web.reactive.config.EnableWebFlux;
@@ -10,22 +12,29 @@ import org.springframework.web.reactive.config.EnableWebFlux;
 @EnableWebFlux
 public class SecurityConfig {
 
+
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
         return http
-                .cors(cors -> cors.disable())  // Disable here, we use global CORS
-                .csrf(csrf -> csrf.disable())
-                .httpBasic(httpBasic -> httpBasic.disable())
-                .formLogin(formLogin -> formLogin.disable())
+                .csrf(ServerHttpSecurity.CsrfSpec::disable)
+                .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
+                .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
+                .logout(ServerHttpSecurity.LogoutSpec::disable)
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((exchange, e) -> {
+                            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                            return exchange.getResponse().setComplete();
+                        })
+                        .accessDeniedHandler((exchange, e) -> {
+                            exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                            return exchange.getResponse().setComplete();
+                        })
+                )
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers(
-                                "/cs/ws/**",
-                                "/cs/ws/info",      // Explicitly allow SockJS info endpoint
-                                "/cs/ws/info/**",
-                                "/cs/ws/websocket/**"
-                        ).permitAll()
-                        .anyExchange().permitAll()
+                        .pathMatchers("/**").permitAll() // Defer auth to GlobalFilter
                 )
                 .build();
     }
+
+
 }

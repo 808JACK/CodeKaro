@@ -1,4 +1,5 @@
 import { API_CONFIG, STORAGE_KEYS } from '../config/api';
+import { fetchWithAuth } from './apiClient';
 
 // Types
 export interface SignupRequest {
@@ -135,27 +136,9 @@ export class AuthService {
   }
 
   // Get User Profile
-  static async getUserProfile(userId: number): Promise<ApiResponse<UserProfile>> {
+    static async getUserProfile(userId: number): Promise<ApiResponse<UserProfile>> {
     try {
-      const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-      
-      if (!token) {
-        throw new Error('No access token found');
-      }
-
-      const response = await fetch(`${API_CONFIG.PROFILE.GET_PROFILE}/${userId}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.message || 'Failed to fetch profile');
-      }
+      const result = await fetchWithAuth(`${API_CONFIG.PROFILE.GET_PROFILE}/${userId}`);
 
       // Save profile to localStorage
       if (result.success && result.data) {

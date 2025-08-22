@@ -1,11 +1,16 @@
 package com.example.demo.Services;
 
+import com.example.demo.Dtos.ApiResponse;
 import com.example.demo.Entities.RefreshToken;
 import com.example.demo.Entities.User;
+import com.example.demo.Exception.ResourceNotFoundException;
+import com.example.demo.Repo.AuthRepo;
 import com.example.demo.Repo.RefreshTokenRepository;
 import com.example.demo.Dtos.LoginResponseDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpHeaders;
@@ -20,7 +25,10 @@ import java.util.Optional;
 @Slf4j
 public class RefreshTokenService {
     private final RefreshTokenRepository refreshTokenRepository;
-    private final JwtService jwtService;
+    @Autowired
+    @Lazy
+    private JwtService jwtService;
+    private final AuthRepo authRepo;
 
     @Transactional
     public RefreshToken createRefreshToken(User user) {
@@ -47,12 +55,12 @@ public class RefreshTokenService {
         return refreshTokenRepository.save(refreshToken);
     }
 
-    public RefreshToken verifyExpiration(RefreshToken token) {
+    public Boolean verifyExpiration(RefreshToken token) {
         if (token.getExpiryDate().compareTo(Instant.now()) < 0 || token.isRevoked()) {
             refreshTokenRepository.delete(token);
-            throw new RuntimeException("Refresh token was expired or revoked. Please make a new signin request");
+            return false;
         }
-        return token;
+        return true;
     }
 //use for accidental logout
     @Transactional
@@ -102,4 +110,5 @@ public class RefreshTokenService {
                     .body(new LoginResponseDto(null, null, null));
         }
     }
+
 } 

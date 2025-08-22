@@ -1,4 +1,5 @@
 import { API_CONFIG, STORAGE_KEYS } from '../config/api';
+import {fetchWithAuth} from './apiClient'
 
 export interface RecentRoom {
   id: string; // Contest code (e.g., "B0Q95PCG")
@@ -67,19 +68,13 @@ class DashboardService {
   async getRecentRooms(): Promise<RecentRoom[]> {
     try {
       console.log('🏠 Dashboard: Fetching recent contest rooms...');
-      
-      const response = await fetch(API_CONFIG.CONTEST.GET_RECENT_ROOMS, {
-        method: 'GET',
-        headers: this.getAuthHeaders()
-      });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch recent rooms: ${response.status}`);
-      }
+      const recentRooms: RecentRoom[] = await fetchWithAuth(
+        `${API_CONFIG.BASE_URL}/collab/api/contests/recent-rooms`,
+        { headers: this.getAuthHeaders() }
+      );
 
-      const recentRooms: RecentRoom[] = await response.json();
       console.log('✅ Dashboard: Loaded', recentRooms.length, 'recent rooms');
-      
       return recentRooms;
     } catch (error) {
       console.error('❌ Dashboard: Error fetching recent rooms:', error);
@@ -87,26 +82,25 @@ class DashboardService {
     }
   }
 
+
   /**
    * Get detailed contest room data when user clicks on a room
    * Loads contest metadata + user's submissions from MongoDB
    */
-  async getContestRoomData(contestCode: string): Promise<ContestRoomData> {
+    async getContestRoomData(contestCode: string): Promise<ContestRoomData> { 
     try {
       console.log('🏠 Dashboard: Loading room data for contest:', contestCode);
       
       const url = API_CONFIG.CONTEST.GET_ROOM_DASHBOARD_DATA.replace('{contestCode}', contestCode);
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getAuthHeaders()
-      });
+      
+      const roomData: ContestRoomData = await fetchWithAuth(url, { method: 'GET' });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch room data: ${response.status}`);
-      }
-
-      const roomData: ContestRoomData = await response.json();
-      console.log('✅ Dashboard: Loaded room data for', contestCode, '- Submissions:', roomData.totalUserSubmissions);
+      console.log(
+        '✅ Dashboard: Loaded room data for',
+        contestCode,
+        '- Submissions:',
+        roomData.totalUserSubmissions
+      );
       
       return roomData;
     } catch (error) {
@@ -119,23 +113,16 @@ class DashboardService {
    * Get user's submissions for a specific contest
    * Used when viewing contest submission history
    */
-  async getUserContestSubmissions(contestCode: string): Promise<ContestSubmission[]> {
+    async getUserContestSubmissions(contestCode: string): Promise<ContestSubmission[]> {
     try {
       console.log('📊 Loading submissions for contest:', contestCode);
-      
+
       const url = API_CONFIG.CONTEST.GET_USER_SUBMISSIONS.replace('{contestCode}', contestCode);
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getAuthHeaders()
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch submissions: ${response.status}`);
-      }
-
-      const submissions: ContestSubmission[] = await response.json();
-      console.log('✅ Loaded', submissions.length, 'submissions for contest', contestCode);
       
+      const submissions: ContestSubmission[] = await fetchWithAuth(url, { method: 'GET' });
+
+      console.log('✅ Loaded', submissions.length, 'submissions for contest', contestCode);
+
       return submissions;
     } catch (error) {
       console.error('❌ Error fetching contest submissions:', error);

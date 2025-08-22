@@ -19,6 +19,7 @@ const Dashboard = () => {
   const [loadingRecentRooms, setLoadingRecentRooms] = useState(false);
   const [lastLoadTime, setLastLoadTime] = useState<number>(0);
   const hasLoadedOnce = useRef(false);
+  const shouldLoadOnMount = useRef(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -26,10 +27,19 @@ const Dashboard = () => {
   // Cache duration: 5 minutes (don't reload unless user returns from contest/room)
   const CACHE_DURATION = 5 * 60 * 1000;
 
+  // Check location state once on mount to determine if we should load data
+  useEffect(() => {
+    if (location.state?.fromContest || location.state?.fromRoom) {
+      shouldLoadOnMount.current = true;
+      // Clear location state immediately to prevent re-renders
+      window.history.replaceState({}, document.title);
+    }
+  }, []); // Only run once on mount
+
   // Load user data and recent rooms with smart caching
   useEffect(() => {
     console.log('🏠 Dashboard: Component mounted/updated');
-    console.log('🏠 Dashboard: Location state:', location.state);
+    console.log('🏠 Dashboard: Should load on mount:', shouldLoadOnMount.current);
     console.log('🏠 Dashboard: Has loaded once:', hasLoadedOnce.current);
     console.log('🏠 Dashboard: Last load time:', new Date(lastLoadTime).toISOString());
 
@@ -52,26 +62,21 @@ const Dashboard = () => {
       
       // Load if:
       // 1. Never loaded before
-      // 2. Coming back from contest/room (location.state?.fromContest or fromRoom)
+      // 2. Coming back from contest/room (shouldLoadOnMount.current)
       // 3. Cache expired (older than 5 minutes)
-      // 4. User explicitly refreshed
       
       const neverLoaded = !hasLoadedOnce.current;
-      const returningFromContest = location.state?.fromContest === true;
-      const returningFromRoom = location.state?.fromRoom === true;
+      const returningFromContest = shouldLoadOnMount.current;
       const cacheExpired = timeSinceLastLoad > CACHE_DURATION;
-      const forceRefresh = location.state?.forceRefresh === true;
       
       console.log('🏠 Dashboard: Should load recent rooms?', {
         neverLoaded,
         returningFromContest,
-        returningFromRoom,
         cacheExpired,
-        forceRefresh,
         timeSinceLastLoad: Math.round(timeSinceLastLoad / 1000) + 's'
       });
       
-      return neverLoaded || returningFromContest || returningFromRoom || cacheExpired || forceRefresh;
+      return neverLoaded || returningFromContest || cacheExpired;
     };
 
     const loadRecentRooms = async () => {
@@ -91,11 +96,7 @@ const Dashboard = () => {
         setRecentRooms(rooms);
         setLastLoadTime(Date.now());
         hasLoadedOnce.current = true;
-        
-        // Clear location state to prevent unnecessary reloads
-        if (location.state) {
-          window.history.replaceState({}, document.title);
-        }
+        shouldLoadOnMount.current = false; // Reset the flag
         
       } catch (error) {
         console.error('🏠 Dashboard: Failed to load recent rooms:', error);
@@ -108,7 +109,7 @@ const Dashboard = () => {
 
     loadUserData();
     loadRecentRooms();
-  }, [location.state, lastLoadTime, CACHE_DURATION]);
+  }, [lastLoadTime, CACHE_DURATION]); // Removed location.state from dependencies
 
   const handleLogout = () => {
     AuthService.logout();

@@ -313,14 +313,7 @@ public class ContestController {
         try {
             log.info("🏠 Dashboard: Fetching recent contest rooms for user: {}", userId);
             
-            if (submissionService == null) {
-                log.warn("SubmissionService not available, returning empty list");
-                return ResponseEntity.ok()
-                    .cacheControl(CacheControl.noCache())
-                    .body(new ArrayList<>());
-            }
-            
-            // Get top 5 recent contests that user participated in (based on MongoDB submissions)
+            // Get top 5 recent contests for user (created + participated)
             List<RecentRoomResponse> recentRooms = getUserTop5RecentContests(userId);
             
             log.info("✅ Dashboard: Found {} recent contest rooms for user {}", recentRooms.size(), userId);
@@ -332,69 +325,135 @@ public class ContestController {
                 .body(recentRooms);
         } catch (Exception e) {
             log.error("❌ Dashboard: Error fetching recent rooms: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError()
+            // Return empty list instead of error to prevent frontend crashes
+            return ResponseEntity.ok()
                 .cacheControl(CacheControl.noCache())
-                .build();
+                .body(new ArrayList<>());
         }
     }
     
     /**
      * Get user's top 5 most recent contest rooms for dashboard
-     * Uses MongoDB submissions to find participated contests, then gets metadata from PostgreSQL
+     * Returns contests created by user + contests where user participated
      */
     private List<RecentRoomResponse> getUserTop5RecentContests(Long userId) {
         try {
             log.info("🔍 Getting top 5 recent contests for user {}", userId);
             
-            // Step 1: Get contest IDs where user has submissions (participation proof from MongoDB)
-            List<Long> participatedContestIds = submissionService.getUserContestIds(userId);
-            
-            if (participatedContestIds.isEmpty()) {
-                log.info("📭 User {} has not participated in any contests yet", userId);
+            if (userId == null) {
+                log.warn("⚠️ User ID is null, returning empty list");
                 return new ArrayList<>();
             }
             
-            log.info("📊 User {} participated in {} contests total", userId, participatedContestIds.size());
+            List<RecentRoomResponse> allContests = new ArrayList<>();
             
-            // Step 2: Get contest metadata from PostgreSQL for top 5 most recent
-            List<RecentRoomResponse> recentContests = new ArrayList<>();
-            for (Long contestId : participatedContestIds.stream().limit(5).collect(Collectors.toList())) {
-                try {
-                    Optional<Contest> contestOpt = contestService.getContestById(contestId);
-                    if (contestOpt.isPresent()) {
-                        Contest contest = contestOpt.get();
+            // Step 1: Get contests CREATED by the user (from PostgreSQL)
+            try {
+                List<Contest> createdContests = contestService.getContestsCreatedByUser(userId);
+                log.info("📝 User {} created {} contests", userId, createdContests.size());
+                
+                for (Contest contest : createdContests) {
+                    try {
+                        if (contest == null || contest.getId() == null) {
+                            log.warn("⚠️ Skipping null contest or contest with null ID");
+                            continue;
+                        }
                         
-                        // Get user's last activity in this contest from MongoDB
-                        String lastActivity = submissionService.getLastActivityTime(userId, contestId);
+                        // Get total participants for this contest
+                        int totalParticipants = getTotalContestParticipants(contest.getId());
                         
-                        // Get user's submission count for this contest from MongoDB
-                        int submissionCount = submissionService.getUserSubmissionCount(userId, contestId);
-                        
-                        // Get total participants (unique users who submitted to this contest)
-                        int totalParticipants = getTotalContestParticipants(contestId);
+                        // For creator, last activity is when contest was created
+                        String lastActivity = "Created contest";
                         
                         RecentRoomResponse contestResponse = RecentRoomResponse.builder()
-                            .id(contest.getInviteLink()) // Contest code for joining (e.g., "B0Q95PCG")
-                            .name(contest.getTitle()) // Contest name from PostgreSQL
+                            .id(contest.getInviteLink())
+                            .name(contest.getTitle())
                             .type("contest")
-                            .participants(totalParticipants) // Total unique participants
-                            .lastActive(lastActivity) // User's last activity time
-                            .createdAt(contest.getStartTime()) // Contest start time from PostgreSQL
+                            .participants(totalParticipants)
+                            .lastActive(lastActivity)
+                            .createdAt(contest.getStartTime())
                             .build();
                             
-                        recentContests.add(contestResponse);
-                        log.info("✅ Added contest: {} (ID: {}, Code: {}, Submissions: {})", 
-                                contest.getTitle(), contestId, contest.getInviteLink(), submissionCount);
-                    } else {
-                        log.warn("⚠️ Contest metadata not found in PostgreSQL for contest ID: {}", contestId);
+                        allContests.add(contestResponse);
+                        log.info("✅ Added CREATED contest: {} (Code: {}, Participants: {})", 
+                                contest.getTitle(), contest.getInviteLink(), totalParticipants);
+                    } catch (Exception e) {
+                        log.warn("❌ Error loading created contest metadata for ID {}: {}", contest.getId(), e.getMessage());
                     }
-                } catch (Exception e) {
-                    log.warn("❌ Error loading contest metadata for ID {}: {}", contestId, e.getMessage());
                 }
+            } catch (Exception e) {
+                log.error("❌ Error fetching created contests for user {}: {}", userId, e.getMessage());
             }
             
-            log.info("🎯 Dashboard: Returning {} recent contests for user {}", recentContests.size(), userId);
-            return recentContests;
+            // Step 2: Get contests where user PARTICIPATED (has submissions in MongoDB)
+            if (submissionService != null) {
+                try {
+                    List<Long> participatedContestIds = submissionService.getUserContestIds(userId);
+                    log.info("📊 User {} participated in {} contests", userId, participatedContestIds.size());
+                    
+                    for (Long contestId : participatedContestIds) {
+                        try {
+                            if (contestId == null) {
+                                log.warn("⚠️ Skipping null contest ID");
+                                continue;
+                            }
+                            
+                            // Skip if we already added this contest as a created one
+                            boolean alreadyAdded = allContests.stream()
+                                .anyMatch(c -> contestService.getContestById(contestId)
+                                    .map(existing -> existing.getInviteLink().equals(c.getId()))
+                                    .orElse(false));
+                            
+                            if (alreadyAdded) {
+                                log.info("⏭️ Skipping contest ID {} - already added as created contest", contestId);
+                                continue;
+                            }
+                            
+                            Optional<Contest> contestOpt = contestService.getContestById(contestId);
+                            if (contestOpt.isPresent()) {
+                                Contest contest = contestOpt.get();
+                                
+                                // Get user's last activity in this contest from MongoDB
+                                String lastActivity = submissionService.getLastActivityTime(userId, contestId);
+                                
+                                // Get total participants for this contest
+                                int totalParticipants = getTotalContestParticipants(contestId);
+                                
+                                RecentRoomResponse contestResponse = RecentRoomResponse.builder()
+                                    .id(contest.getInviteLink())
+                                    .name(contest.getTitle())
+                                    .type("contest")
+                                    .participants(totalParticipants)
+                                    .lastActive(lastActivity)
+                                    .createdAt(contest.getStartTime())
+                                    .build();
+                                    
+                                allContests.add(contestResponse);
+                                log.info("✅ Added PARTICIPATED contest: {} (Code: {}, Participants: {})", 
+                                        contest.getTitle(), contest.getInviteLink(), totalParticipants);
+                            }
+                        } catch (Exception e) {
+                            log.warn("❌ Error loading participated contest metadata for ID {}: {}", contestId, e.getMessage());
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("❌ Error fetching participated contests for user {}: {}", userId, e.getMessage());
+                }
+            } else {
+                log.warn("⚠️ SubmissionService not available - only showing created contests");
+            }
+            
+            // Step 3: Sort by creation date (most recent first) and limit to top 5
+            List<RecentRoomResponse> top5Contests = allContests.stream()
+                .filter(c -> c.getCreatedAt() != null) // Filter out contests with null dates
+                .sorted((c1, c2) -> c2.getCreatedAt().compareTo(c1.getCreatedAt()))
+                .limit(5)
+                .collect(Collectors.toList());
+            
+            log.info("🎯 Dashboard: Returning {} top recent contests for user {} (out of {} total)", 
+                    top5Contests.size(), userId, allContests.size());
+            
+            return top5Contests;
         } catch (Exception e) {
             log.error("❌ Error getting user's top 5 recent contests: {}", e.getMessage(), e);
             return new ArrayList<>();
@@ -402,20 +461,31 @@ public class ContestController {
     }
     
     /**
-     * Get total number of unique participants for a contest
+     * Get total number of participants for a contest
+     * Counts unique users who have submitted code to this contest
      */
     private int getTotalContestParticipants(Long contestId) {
         try {
-            if (submissionService == null) return 0;
+            if (contestId == null) {
+                log.warn("⚠️ Contest ID is null, returning default participant count");
+                return 1; // Default to 1 if contest ID is null
+            }
             
-            List<ContestSubmission> contestSubmissions = submissionService.getContestSubmissions(contestId);
-            return (int) contestSubmissions.stream()
-                .map(ContestSubmission::getUserId)
-                .distinct()
-                .count();
+            if (submissionService == null) {
+                log.warn("⚠️ SubmissionService not available, returning default participant count");
+                return 1; // Default to 1 if service not available
+            }
+            
+            // Get unique user IDs who have submissions for this contest
+            List<Long> participantUserIds = submissionService.getContestParticipantUserIds(contestId);
+            int participantCount = participantUserIds != null ? participantUserIds.size() : 1;
+            
+            log.info("Contest {} has {} unique participants", contestId, participantCount);
+            return participantCount;
+            
         } catch (Exception e) {
             log.warn("Error getting participant count for contest {}: {}", contestId, e.getMessage());
-            return 0;
+            return 1; // Default to 1 on error
         }
     }
     

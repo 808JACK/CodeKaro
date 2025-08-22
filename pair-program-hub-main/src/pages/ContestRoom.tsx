@@ -649,7 +649,7 @@ const ContestRoom = () => {
               className="gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back
+              Leave
             </Button>
             <div className="flex items-center gap-3">
               <div className="p-2 bg-warning/10 rounded-lg">

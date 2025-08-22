@@ -22,4 +22,6 @@ extends JpaRepository<Contest, Long> {
     public boolean existsByInviteLink(String var1);
     
     public List<Contest> findByStatus(ContestStatus status);
+    
+    public List<Contest> findByCreatorId(Long creatorId);
 }

@@ -49,3 +49,38 @@ services:
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
+
+  # Keep-Alive Service
+  - type: web
+    name: codekaro-keep-alive
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    rootDir: ./keep-alive-service
+    healthCheckPath: /health
+    envVars:
+      - key: API_GATEWAY_URL
+        fromService:
+          type: web
+          name: api-gateway
+          property: host
+      - key: AUTH_SERVICE_URL
+        fromService:
+          type: web
+          name: auth-service
+          property: host
+      - key: PROBLEM_SERVICE_URL
+        fromService:
+          type: web
+          name: problem-service
+          property: host
+      - key: COLLAB_SERVICE_URL
+        fromService:
+          type: web
+          name: collab-service
+          property: host
+      - key: EUREKA_SERVICE_URL
+        fromService:
+          type: web
+          name: eureka-service
+          property: host

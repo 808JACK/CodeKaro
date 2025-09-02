@@ -2,7 +2,7 @@ import { API_CONFIG } from '../config/api';
 
 class KeepAliveService {
   private intervalId: NodeJS.Timeout | null = null;
-  private readonly PING_INTERVAL = 8 * 60 * 1000; // 8 minutes
+  private readonly PING_INTERVAL = 4 * 60 * 1000; // 4 minutes
   private isActive = false;
 
   start() {

@@ -42,8 +42,8 @@ async function pingAllServices() {
     console.log(`📊 ${successful}/${services.length} services responded successfully\n`);
 }
 
-// Schedule pings every 12 minutes (just under Render's 15-minute hibernation)
-cron.schedule('*/12 * * * *', () => {
+// Schedule pings every 5 minutes (aggressive keep-alive)
+cron.schedule('*/5 * * * *', () => {
     pingAllServices();
 });
 
@@ -75,7 +75,7 @@ app.get('/status', (req, res) => {
 app.listen(PORT, () => {
     console.log(`🚀 Keep-Alive service running on port ${PORT}`);
     console.log(`📋 Monitoring ${services.length} services`);
-    console.log(`⏰ Pinging every 12 minutes (prevents hibernation)`);
+    console.log(`⏰ Pinging every 5 minutes (aggressive keep-alive)`);
     
     // Initial ping
     setTimeout(() => {

@@ -40,6 +40,12 @@ public class AuthFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
+        // Allow unauthenticated access to health endpoints
+        if (path.equals("/health") || path.equals("/ping") || path.startsWith("/actuator/health")) {
+            log.info("[AuthFilter] Allowing unauthenticated access to health endpoint: {}", path);
+            return chain.filter(exchange);
+        }
+
         // Allow unauthenticated GET access to static uploads
         if (path.startsWith("/uploads/") && HttpMethod.GET.equals(method)) {
             return chain.filter(exchange);

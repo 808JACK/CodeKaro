@@ -4,8 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { useEffect } from "react";
-import { keepAliveService } from "./utils/keepAlive";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -35,18 +33,18 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => {
   const { isAuthenticated } = useAuth();
 
-  // Start keep-alive service when user is authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      keepAliveService.start();
-    } else {
-      keepAliveService.stop();
-    }
-    
-    return () => {
-      keepAliveService.stop();
-    };
-  }, [isAuthenticated]);
+  // Keep-alive is handled by server-side service - no need for frontend pings
+  // useEffect(() => {
+  //   if (isAuthenticated) {
+  //     keepAliveService.start();
+  //   } else {
+  //     keepAliveService.stop();
+  //   }
+  //   
+  //   return () => {
+  //     keepAliveService.stop();
+  //   };
+  // }, [isAuthenticated]);
 
   return (
     <Routes>

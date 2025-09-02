@@ -49,6 +49,8 @@ services:
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
+      - key: FRONTEND_URL
+        value: https://code-karo-gamma.vercel.app
 
   # Keep-Alive Service
   - type: web

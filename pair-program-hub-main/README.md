@@ -94,4 +94,4 @@ Currently using mock/dummy APIs and WebSocket connections. The platform is desig
 2. Start development server: `npm run dev`
 3. Open browser to `http://localhost:5173`
 
-For production deployment, use the Publish button in the Lovable interface.
+For production deployment, build with `npm run build` and deploy the `dist/` folder.

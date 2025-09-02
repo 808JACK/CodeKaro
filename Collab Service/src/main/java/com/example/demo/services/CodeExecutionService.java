@@ -34,14 +34,16 @@ public class CodeExecutionService {
     @Generated
     private static final Logger log = LoggerFactory.getLogger(CodeExecutionService.class);
     private final MinIOService minIOService;
+    private final CompetitiveProgrammingExecutionService competitiveProgrammingService;
     private final boolean dockerAvailable;
     private String reusableContainerId = null;
     private long lastContainerUse = 0L;
     private static final long CONTAINER_REUSE_TIMEOUT = 300000L;
     private static final String PYTHON_IMAGE = "python:3.11-alpine";
 
-    public CodeExecutionService(MinIOService minIOService) {
+    public CodeExecutionService(MinIOService minIOService, CompetitiveProgrammingExecutionService competitiveProgrammingService) {
         this.minIOService = minIOService;
+        this.competitiveProgrammingService = competitiveProgrammingService;
         this.dockerAvailable = this.checkDockerAvailability();
         if (this.dockerAvailable) {
             log.info("Docker CLI is available - real code execution enabled");
@@ -166,7 +168,7 @@ public class CodeExecutionService {
                 throw new RuntimeException("Failed to get Docker container");
             }
             log.debug("Using container {} for problem {}", (Object)containerId, (Object)problemName);
-            List<TestResult> testResults = this.executeTestCasesDirect(containerId, code, testCases, timeLimitMsPerTest, isSubmit);
+            List<TestResult> testResults = this.executeTestCasesDirect(containerId, code, testCases, timeLimitMsPerTest, isSubmit, problemName);
             if (!isSubmit) {
                 ArrayList<TestResult> visibleResults = new ArrayList<TestResult>();
                 for (TestResult nunu : testResults) {
@@ -234,58 +236,106 @@ public class CodeExecutionService {
         try {
             log.debug("Preprocessing input: '{}'", rawInput);
             
-            // Simple approach: Keep null as "null" - don't convert to "None"
-            // This way users can consistently use x != "null" in their code
-            // No conversion needed - just pass through as-is
+            // Handle competitive programming format conversion
+            String processedInput = convertCompetitiveProgrammingInput(rawInput);
             
-            return rawInput;
+            return processedInput;
             
         } catch (Exception e) {
             log.warn("Error preprocessing input '{}': {}", rawInput, e.getMessage());
             return rawInput; // Always return original if any error occurs
         }
     }
+    
+    /**
+     * Convert competitive programming input to proper format for code execution
+     * Examples:
+     * "2 7 11 15 9" -> "2 7 11 15\n9" (for two sum: array + target)
+     * "1 2 3 4 5" -> "1 2 3 4 5" (for single array problems)
+     */
+    private String convertCompetitiveProgrammingInput(String input) {
+        try {
+            String[] parts = input.trim().split("\\s+");
+            
+            // For problems with multiple numbers, common patterns:
+            if (parts.length >= 3) {
+                // Check if this looks like a two-sum style problem (array + target)
+                // Heuristic: if last number is much smaller than the sum of others, it's likely a target
+                try {
+                    int[] numbers = new int[parts.length];
+                    for (int i = 0; i < parts.length; i++) {
+                        numbers[i] = Integer.parseInt(parts[i]);
+                    }
+                    
+                    // Simple heuristic: if we have 3+ numbers, treat last as target for two-sum style problems
+                    if (numbers.length >= 3) {
+                        // Array part (all but last)
+                        StringBuilder arrayPart = new StringBuilder();
+                        for (int i = 0; i < numbers.length - 1; i++) {
+                            if (i > 0) arrayPart.append(" ");
+                            arrayPart.append(numbers[i]);
+                        }
+                        // Target part (last number)
+                        String targetPart = String.valueOf(numbers[numbers.length - 1]);
+                        
+                        return arrayPart.toString() + "\n" + targetPart;
+                    }
+                } catch (NumberFormatException e) {
+                    // Not all numbers, return as-is
+                    log.debug("Input contains non-numeric data, returning as-is");
+                }
+            }
+            
+            // For other cases, return as-is
+            return input;
+            
+        } catch (Exception e) {
+            log.debug("Error converting competitive programming input: {}", e.getMessage());
+            return input;
+        }
+    }
 
     private String wrapUserCodeWithNullHandling(String userCode) {
         try {
-            log.debug("Wrapping user code with automatic null handling");
+            log.debug("Wrapping user code for competitive programming execution");
             
             StringBuilder wrappedCode = new StringBuilder();
             
-            // Add automatic null handling utilities
-            wrappedCode.append("# Automatic null handling - users don't need to worry about this!\n");
+            // Add competitive programming utilities
+            wrappedCode.append("# Competitive Programming Utilities\n");
+            wrappedCode.append("import sys\n");
             wrappedCode.append("import builtins\n");
             wrappedCode.append("_original_input = builtins.input\n\n");
             
-            // Override input() to handle null automatically
+            // Override input() for competitive programming
             wrappedCode.append("def input():\n");
-            wrappedCode.append("    line = _original_input()\n");
+            wrappedCode.append("    line = _original_input().strip()\n");
             wrappedCode.append("    return line\n\n");
             
-            // Add helper function for parsing arrays with null handling
-            wrappedCode.append("def parse_array(line):\n");
-            wrappedCode.append("    \"\"\"Parse space-separated input with automatic null handling\"\"\"\n");
-            wrappedCode.append("    parts = line.split()\n");
-            wrappedCode.append("    result = []\n");
-            wrappedCode.append("    for part in parts:\n");
-            wrappedCode.append("        if part == 'null' or part == 'None':\n");
-            wrappedCode.append("            result.append(None)\n");
-            wrappedCode.append("        else:\n");
-            wrappedCode.append("            try:\n");
-            wrappedCode.append("                result.append(int(part))\n");
-            wrappedCode.append("            except ValueError:\n");
-            wrappedCode.append("                result.append(part)  # Keep as string if not a number\n");
-            wrappedCode.append("    return result\n\n");
+            // Add helper functions for common competitive programming patterns
+            wrappedCode.append("def read_ints():\n");
+            wrappedCode.append("    \"\"\"Read space-separated integers from input\"\"\"\n");
+            wrappedCode.append("    return list(map(int, input().split()))\n\n");
+            
+            wrappedCode.append("def read_int():\n");
+            wrappedCode.append("    \"\"\"Read single integer from input\"\"\"\n");
+            wrappedCode.append("    return int(input())\n\n");
+            
+            wrappedCode.append("def read_strings():\n");
+            wrappedCode.append("    \"\"\"Read space-separated strings from input\"\"\"\n");
+            wrappedCode.append("    return input().split()\n\n");
             
             // Replace builtins
             wrappedCode.append("builtins.input = input\n");
-            wrappedCode.append("builtins.parse_array = parse_array\n\n");
+            wrappedCode.append("builtins.read_ints = read_ints\n");
+            wrappedCode.append("builtins.read_int = read_int\n");
+            wrappedCode.append("builtins.read_strings = read_strings\n\n");
             
             // Add user's code
             wrappedCode.append("# User's code starts here\n");
             wrappedCode.append(userCode);
             
-            log.debug("Code wrapped successfully");
+            log.debug("Code wrapped successfully for competitive programming");
             return wrappedCode.toString();
             
         } catch (Exception e) {
@@ -388,22 +438,81 @@ public class CodeExecutionService {
         return script.toString();
     }
 
-    private List<TestResult> executeTestCasesDirect(String containerId, String code, List<TestCase> testCases, long timeLimitMs, boolean isSubmit) {
-        // Try stdin/stdout execution first
-        log.info("Using stdin/stdout execution (most robust approach)");
-        List<TestResult> results = this.executeTestCasesStdinStdout(containerId, code, testCases, timeLimitMs, isSubmit);
-        boolean allEmptyOutputs = true;
-        for (TestResult r : results) {
-            String out = r.getOutput();
-            if (out != null && !out.trim().isEmpty()) {
-                allEmptyOutputs = false;
-                break;
+    private List<TestResult> executeTestCasesDirect(String containerId, String code, List<TestCase> testCases, long timeLimitMs, boolean isSubmit, String problemName) {
+        // Use competitive programming execution for better handling of test cases
+        log.info("Using competitive programming execution approach for problem: {}", problemName);
+        return this.executeTestCasesCompetitiveProgramming(containerId, code, testCases, timeLimitMs, isSubmit, problemName);
+    }
+    
+    /**
+     * Execute test cases using competitive programming approach
+     * Properly handles different problem types (TwoSum, LinkedList, etc.)
+     */
+    private List<TestResult> executeTestCasesCompetitiveProgramming(String containerId, String code, List<TestCase> testCases, long timeLimitMs, boolean isSubmit, String problemName) {
+        List<TestResult> results = new ArrayList<TestResult>();
+        
+        try {
+            long startTime = System.currentTimeMillis();
+            
+            // Convert test cases to competitive programming format
+            List<CompetitiveProgrammingExecutionService.TestCase> cpTestCases = new ArrayList<>();
+            for (TestCase tc : testCases) {
+                cpTestCases.add(new CompetitiveProgrammingExecutionService.TestCase(tc.getInput(), tc.getExpectedOutput()));
             }
+            
+            // Generate the test script using competitive programming service
+            String testScript = competitiveProgrammingService.generateTestScript(code, cpTestCases, problemName);
+            
+            log.info("Generated test script for problem: {}", problemName);
+            log.debug("Test script preview: {}", testScript.length() > 500 ? testScript.substring(0, 500) + "..." : testScript);
+            
+            // Execute the test script in Docker
+            ProcessBuilder pb = new ProcessBuilder("docker", "exec", containerId, "python3", "-c", testScript);
+            Process process = pb.start();
+            
+            long totalTimeout = Math.min(timeLimitMs * (long)testCases.size(), 30000L); // Max 30 seconds
+            boolean finished = process.waitFor(totalTimeout, TimeUnit.MILLISECONDS);
+            long execTime = System.currentTimeMillis() - startTime;
+            
+            if (!finished) {
+                process.destroyForcibly();
+                for (int i = 1; i <= testCases.size(); i++) {
+                    results.add(new TestResult(i, "TLE", execTime, "", "Time limit exceeded"));
+                }
+                return results;
+            }
+            
+            String output = this.readStream(process.getInputStream());
+            String error = this.readStream(process.getErrorStream());
+            
+            if (process.exitValue() != 0) {
+                String errorType = this.determineErrorType(error);
+                String cleanError = this.cleanErrorMessage(error);
+                log.error("Docker execution failed for problem {}: exit code {}", problemName, process.exitValue());
+                log.error("Error output: {}", error);
+                log.error("Standard output: {}", output);
+                
+                for (int i = 1; i <= testCases.size(); i++) {
+                    results.add(new TestResult(i, errorType, execTime, output, cleanError));
+                }
+                return results;
+            }
+            
+            if (output.trim().isEmpty()) {
+                for (int i = 1; i <= testCases.size(); i++) {
+                    results.add(new TestResult(i, "RE", execTime, "", "No output produced. Check if your function returns a value."));
+                }
+                return results;
+            }
+            
+            // Parse the JSON results
+            results = this.parseTestResults(output.trim(), execTime);
+            
+        } catch (Exception e) {
+            log.error("Error executing competitive programming test cases: {}", e.getMessage());
+            results.add(new TestResult(1, "RE", 0L, "", e.getMessage()));
         }
-        if (allEmptyOutputs) {
-            log.info("Stdin/stdout produced empty outputs. Falling back to function-call execution with parsed parameters.");
-            return this.executeTestCasesWithParameters(containerId, code, testCases, timeLimitMs, isSubmit);
-        }
+        
         return results;
     }
 

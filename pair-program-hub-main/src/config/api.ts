@@ -1,22 +1,26 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:8086',
+  BASE_URL: 'http://localhost:8086', // API Gateway
   AUTH: {
+    // All requests go through API Gateway
     SIGNUP: 'http://localhost:8086/auth/signup',
     VERIFY_OTP: 'http://localhost:8086/auth/verify-otp',
     LOGIN: 'http://localhost:8086/auth/login',
     REFRESH_TOKEN: 'http://localhost:8086/auth/refreshAccessToken'
   },
   TOKEN: {
+    // These go through API Gateway (need authentication)
     USER_INFO: 'http://localhost:8086/token/user-info',
     VALIDATE: 'http://localhost:8086/token/validate',
     REFRESH: 'http://localhost:8086/token/refresh'
   },
   PROFILE: {
+    // These go through API Gateway (need authentication)
     GET_PROFILE: 'http://localhost:8086/auth/profiles',
     UPDATE_PROFILE: 'http://localhost:8086/auth/profiles',
     UPLOAD_AVATAR: 'http://localhost:8086/auth/profiles'
   },
+  
   PROBLEM: {
     GET_TOPICS: 'http://localhost:8086/problem/topicList',
     GET_PROBLEMS_BY_TOPIC: 'http://localhost:8086/problem/topic',

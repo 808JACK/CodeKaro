@@ -153,7 +153,7 @@ export class AuthService {
   }
 
   // Get User Info from Token
-  static async getUserInfo(): Promise<any> {
+  static async getUserInfo(): Promise<unknown> {
     try {
       const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
       
@@ -198,7 +198,7 @@ export class AuthService {
   }
 
   // Get stored user info
-  static getStoredUserInfo(): any {
+  static getStoredUserInfo(): unknown {
     const userInfo = localStorage.getItem(STORAGE_KEYS.USER_INFO);
     return userInfo ? JSON.parse(userInfo) : null;
   }
@@ -208,4 +208,6 @@ export class AuthService {
     const profile = localStorage.getItem(STORAGE_KEYS.USER_PROFILE);
     return profile ? JSON.parse(profile) : null;
   }
+
+
 }

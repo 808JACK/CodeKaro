@@ -35,7 +35,8 @@ public class AuthFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
-        if (path.startsWith("/auth/login") || path.startsWith("/auth/signup") || path.startsWith("/auth/verify-otp")) {
+        if (path.startsWith("/auth/login") || path.startsWith("/auth/signup") || path.startsWith("/auth/verify-otp") || path.startsWith("/auth/refreshAccessToken")) {
+            log.info("[AuthFilter] Allowing unauthenticated access to: {}", path);
             return chain.filter(exchange);
         }
 
@@ -73,31 +74,36 @@ public class AuthFilter implements GlobalFilter, Ordered {
                     .retrieve()
                     .bodyToMono(String.class)
                     .flatMap(newAccessToken -> {
-                if ("REFRESH_EXPIRED".equals(newAccessToken)) {
-                    log.warn("[AuthFilter] Refresh token expired for user {}; signaling frontend to login", userId);
-                    // refresh token expired → tell frontend to redirect to login
-                    exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                    exchange.getResponse().getHeaders().set("X-Refresh-Expired", "true");
-                    return exchange.getResponse().setComplete();
-                } else if (newAccessToken != null && !newAccessToken.isBlank()) {
-                    log.info("[AuthFilter] Got new access token; forwarding request {}");
-                    // valid new access token
-                    ServerWebExchange updatedExchange = exchange.mutate()
-                            .request(r -> r.headers(h -> h.set(HttpHeaders.AUTHORIZATION, "Bearer " + newAccessToken)))
-                            .build();
+                        if ("REFRESH_EXPIRED".equals(newAccessToken)) {
+                            log.warn("[AuthFilter] Refresh token expired for user {}; signaling frontend to login", userId);
+                            // refresh token expired → tell frontend to redirect to login
+                            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                            exchange.getResponse().getHeaders().set("X-Refresh-Expired", "true");
+                            return exchange.getResponse().setComplete();
+                        } else if (newAccessToken != null && !newAccessToken.isBlank()) {
+                            log.info("[AuthFilter] Got new access token for user {}; forwarding request", userId);
+                            // valid new access token
+                            ServerWebExchange updatedExchange = exchange.mutate()
+                                    .request(r -> r.headers(h -> h.set(HttpHeaders.AUTHORIZATION, "Bearer " + newAccessToken)))
+                                    .build();
 
-                    exchange.getResponse().getHeaders().set("X-New-Access-Token", newAccessToken);
-                    return chain.filter(updatedExchange);
-                } else {
-                    log.warn("[AuthFilter] Refresh returned empty token; unauthorized {}");
-                    // fallback → unauthorized
-                    exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
-                    return exchange.getResponse().setComplete();
-                }
-            });
+                            exchange.getResponse().getHeaders().set("X-New-Access-Token", newAccessToken);
+                            return chain.filter(updatedExchange);
+                        } else {
+                            log.warn("[AuthFilter] Refresh returned empty token for user {}; unauthorized", userId);
+                            // fallback → unauthorized
+                            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                            return exchange.getResponse().setComplete();
+                        }
+                    })
+                    .onErrorResume(error -> {
+                        log.error("[AuthFilter] Error during token refresh for user {}: {}", userId, error.getMessage());
+                        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                        return exchange.getResponse().setComplete();
+                    });
         }
     }
-        @Override
+    @Override
     public int getOrder() {
         return 1; // Run after CORS filter
     }

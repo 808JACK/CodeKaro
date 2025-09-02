@@ -27,7 +27,10 @@ import com.example.demo.entities.Contest;
 import com.example.demo.services.CodeExecutionService;
 import com.example.demo.services.ContestService;
 import com.example.demo.services.SubmissionService;
+import com.example.demo.services.MinIOService;
 import com.example.demo.entities.ContestSubmission;
+import java.util.HashMap;
+import java.util.Map;
 import com.example.demo.entities.Contest;
 import java.time.Duration;
 import java.time.Instant;
@@ -56,6 +59,8 @@ public class ContestController {
     private final SubmissionService submissionService;
     @Autowired(required = false)
     private CodeExecutionService codeExecutionService;
+    @Autowired(required = false)
+    private MinIOService minIOService;
 
     public ContestController(ContestService contestService, SubmissionService submissionService) {
         this.contestService = contestService;
@@ -119,6 +124,9 @@ public class ContestController {
     public ResponseEntity<CodeExecutionResponse> runCode(@RequestBody CodeExecutionRequest request) {
         try {
             log.info("Running code for problem: {}", (Object) request.getProblemName());
+            log.info("Code language: {}", (Object) request.getLanguage());
+            log.debug("Code content: {}", (Object) request.getCode());
+            
             if (this.codeExecutionService == null) {
                 log.warn("CodeExecutionService not available - Docker not configured");
                 CodeExecutionResponse response = new CodeExecutionResponse();
@@ -127,7 +135,16 @@ public class ContestController {
                 response.setError("Code execution service not available. Please ensure Docker is running and restart the service.");
                 return ResponseEntity.ok((CodeExecutionResponse) response);
             }
-            CodeExecutionService.ExecutionResult result = this.codeExecutionService.executeCode(request.getCode(), request.getLanguage(), request.getProblemName(), false, request.getTimeLimitMs(), request.getMemoryLimitMb());
+            
+            CodeExecutionService.ExecutionResult result = this.codeExecutionService.executeCode(
+                request.getCode(), 
+                request.getLanguage(), 
+                request.getProblemName(), 
+                false, 
+                request.getTimeLimitMs(), 
+                request.getMemoryLimitMb()
+            );
+            
             CodeExecutionResponse response = new CodeExecutionResponse();
             response.setOverallVerdict(result.getOverallVerdict());
             if (result.getTestResults() != null) {
@@ -152,6 +169,100 @@ public class ContestController {
             errorResponse.setTestResults(new ArrayList<CodeExecutionResponse.TestResult>());
             errorResponse.setError(e.getMessage());
             return ResponseEntity.ok((CodeExecutionResponse) errorResponse);
+        }
+    }
+    
+    /**
+     * Test endpoint to verify code execution works
+     */
+    @PostMapping(value = {"/code/test"})
+    public ResponseEntity<Map<String, Object>> testCodeExecution() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            // Test with a simple Two Sum problem
+            String testCode = """
+                def twoSum(nums, target):
+                    for i in range(len(nums)):
+                        for j in range(i + 1, len(nums)):
+                            if nums[i] + nums[j] == target:
+                                return [i, j]
+                    return []
+                """;
+            
+            CodeExecutionRequest request = new CodeExecutionRequest();
+            request.setCode(testCode);
+            request.setLanguage("python");
+            request.setProblemName("test_problem");
+            request.setTimeLimitMs(5000L);
+            request.setMemoryLimitMb(256L);
+            
+            log.info("Testing code execution with Two Sum problem");
+            
+            if (this.codeExecutionService == null) {
+                response.put("error", "CodeExecutionService not available");
+                return ResponseEntity.internalServerError().body(response);
+            }
+            
+            CodeExecutionService.ExecutionResult result = this.codeExecutionService.executeCode(
+                request.getCode(), 
+                request.getLanguage(), 
+                request.getProblemName(), 
+                false, 
+                request.getTimeLimitMs(), 
+                request.getMemoryLimitMb()
+            );
+            
+            response.put("verdict", result.getOverallVerdict());
+            response.put("testResults", result.getTestResults());
+            response.put("error", result.getError());
+            response.put("message", "Test execution completed");
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("Error in test execution: {}", e.getMessage(), e);
+            response.put("error", "Test execution failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+    
+    /**
+     * Test endpoint to verify test case parsing works
+     */
+    @GetMapping(value = {"/test-parsing/{problemName}"})
+    public ResponseEntity<Map<String, Object>> testParsing(@PathVariable String problemName) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            log.info("Testing parsing for problem: {}", problemName);
+            
+            if (minIOService == null) {
+                response.put("error", "MinIOService not available");
+                return ResponseEntity.internalServerError().body(response);
+            }
+            
+            // Get test cases using MinIOService
+            List<MinIOService.TestCase> testCases = minIOService.getTestCases(problemName, false);
+            
+            log.info("Found {} test cases for problem {}", testCases.size(), problemName);
+            
+            response.put("problemName", problemName);
+            response.put("testCaseCount", testCases.size());
+            response.put("testCases", testCases.stream().map(tc -> {
+                Map<String, Object> tcMap = new HashMap<>();
+                tcMap.put("input", tc.getInput());
+                tcMap.put("expectedOutput", tc.getExpectedOutput());
+                tcMap.put("visible", tc.isVisible());
+                return tcMap;
+            }).toList());
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("Error testing parsing for {}: {}", problemName, e.getMessage(), e);
+            response.put("error", "Parsing test failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
         }
     }
 

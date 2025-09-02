@@ -198,7 +198,7 @@ export class ContestService {
   }
 
   // Join contest
-  static async joinContest(contestId: string): Promise<any> {
+  static async joinContest(contestId: string): Promise<unknown> {
     try {
       const userInfo = AuthService.getStoredUserInfo();
       
@@ -357,7 +357,7 @@ export class ContestService {
       console.log('API call duration:', endTime - startTime, 'ms');
       console.log('Response status:', response.status);
       console.log('Response ok:', response.ok);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('Response headers:', response.headers ? Object.fromEntries(response.headers.entries()) : 'No headers');
 
       const result = await response.json();
       console.log('=== RUN CODE RESPONSE ===');
@@ -446,7 +446,7 @@ export class ContestService {
       console.log('API call duration:', endTime - startTime, 'ms');
       console.log('Response status:', response.status);
       console.log('Response ok:', response.ok);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('Response headers:', response.headers ? Object.fromEntries(response.headers.entries()) : 'No headers');
 
       const result = await response.json();
       console.log('=== SUBMIT CODE RESPONSE ===');

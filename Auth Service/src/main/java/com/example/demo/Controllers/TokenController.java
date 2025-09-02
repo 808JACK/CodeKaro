@@ -99,7 +99,15 @@ public class TokenController {
 
     @GetMapping("/refreshAT/{userId}")
     public ResponseEntity<String> refreshAT(@PathVariable Long userId) {
-        return ResponseEntity.ok(authService.refreshAT(userId));
+        try {
+            log.info("Attempting to refresh access token for user: {}", userId);
+            String result = authService.refreshAT(userId);
+            log.info("Successfully refreshed token for user: {}", userId);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Error refreshing access token for user {}: {}", userId, e.getMessage(), e);
+            return ResponseEntity.status(500).body("REFRESH_ERROR");
+        }
     }
 
     public record UserInfo(String id, String email) {}

@@ -48,7 +48,9 @@ public class MinIOService {
     @Value(value="${minio.bucket.testcases:testcases}")
     private String testCasesBucket;
 
-    public MinIOService(@Value(value="${minio.url:http://localhost:9000}") String minioUrl, @Value(value="${minio.access-key:minioadmin}") String accessKey, @Value(value="${minio.secret-key:minioadmin}") String secretKey) {
+    public MinIOService(@Value(value="${minio.url:http://localhost:9000}") String minioUrl, 
+                       @Value(value="${minio.access-key:minioadmin}") String accessKey, 
+                       @Value(value="${minio.secret-key:minioadmin}") String secretKey) {
         this.minioClient = MinioClient.builder().endpoint(minioUrl).credentials(accessKey, secretKey).build();
     }
 
@@ -173,7 +175,7 @@ public class MinIOService {
                         String content = this.getFileContent(path).trim();
                         if (content.isEmpty()) continue;
                         log.info("Found test case file at: {}", (Object)path);
-                        testCases = this.parseCombinedContent(content);
+                        testCases = this.parseCombinedContent(content, problemName);
                         if (testCases.isEmpty()) continue;
                         break;
                     }
@@ -189,7 +191,7 @@ public class MinIOService {
                     if (!objectName.contains(problemName) || !objectName.endsWith(".txt")) continue;
                     log.info("Found potential test case file: {}", (Object)objectName);
                     String content = this.getFileContent(objectName).trim();
-                    testCases = this.parseCombinedContent(content);
+                    testCases = this.parseCombinedContent(content, problemName);
                     if (testCases.isEmpty()) continue;
                     break;
                 }
@@ -202,34 +204,134 @@ public class MinIOService {
     }
 
     private List<TestCase> parseCombinedContent(String content) {
+        return parseCombinedContent(content, "unknown");
+    }
+    
+    private List<TestCase> parseCombinedContent(String content, String problemName) {
         List<TestCase> testCases = new ArrayList<TestCase>();
         try {
-            log.info("Parsing content: {}", (Object)content);
+            log.info("Parsing content for problem: {}", problemName);
+            log.debug("Content preview: {}", content.length() > 200 ? content.substring(0, 200) + "..." : content);
             
-            // Try stdin/stdout format first
-            testCases = this.parseStdinStdoutFormat(content);
+            // Try INPUT/OUTPUT format first (your main format)
+            testCases = parseInputOutputFormat(content);
             if (!testCases.isEmpty()) {
+                log.info("Successfully parsed {} test cases using INPUT/OUTPUT format", testCases.size());
                 return testCases;
             }
             
-            // Fallback to old parameter format
+            // Try other formats as fallback
+            testCases = this.parseStdinStdoutFormat(content);
+            if (!testCases.isEmpty()) {
+                log.info("Successfully parsed {} test cases using stdin/stdout format", testCases.size());
+                return testCases;
+            }
+            
+            // Fallback to arrow format
+            testCases = parseArrowFormat(content);
+            if (!testCases.isEmpty()) {
+                log.info("Successfully parsed {} test cases using arrow format", testCases.size());
+                return testCases;
+            }
+            
+            log.warn("No test cases found for problem {} with any known format", problemName);
+            
+        } catch (Exception e) {
+            log.error("Error parsing combined content for problem {}: {}", problemName, e.getMessage(), e);
+        }
+        return testCases;
+    }
+    
+    /**
+     * Parse INPUT: ... OUTPUT: ... format (your main competitive programming format)
+     */
+    private List<TestCase> parseInputOutputFormat(String content) {
+        List<TestCase> testCases = new ArrayList<TestCase>();
+        try {
+            log.info("Attempting INPUT/OUTPUT format parsing");
+            log.debug("Content to parse: '{}'", content);
+            
+            // Handle compact format: INPUT:2 7 11 159OUTPUT:0 1INPUT:3 2 46OUTPUT:1 2
+            // Use a more specific pattern that looks for "OUTPUT:" as the delimiter
+            Pattern pattern = Pattern.compile("INPUT:(.*?)OUTPUT:(.*?)(?=INPUT:|$)", Pattern.CASE_INSENSITIVE);
+            Matcher matcher = pattern.matcher(content);
+            
+            int testNumber = 0;
+            while (matcher.find()) {
+                String inputData = matcher.group(1).trim();
+                String expectedOutput = matcher.group(2).trim();
+                
+                log.debug("Raw match {}: input='{}', output='{}'", testNumber + 1, inputData, expectedOutput);
+                
+                // Clean up the data - normalize whitespace
+                inputData = inputData.replaceAll("\\s+", " ").trim();
+                expectedOutput = expectedOutput.replaceAll("\\s+", " ").trim();
+                
+                if (!inputData.isEmpty() && !expectedOutput.isEmpty()) {
+                    testCases.add(new TestCase(inputData, expectedOutput, testNumber < 2));
+                    log.info("Parsed INPUT/OUTPUT test case {}: input='{}', expected='{}'", 
+                             testNumber + 1, inputData, expectedOutput);
+                    testNumber++;
+                }
+            }
+            
+            // If no matches with compact format, try spaced format as fallback
+            if (testCases.isEmpty()) {
+                log.info("Compact format failed, trying spaced INPUT/OUTPUT format");
+                pattern = Pattern.compile("INPUT:\\s*([^O]*?)\\s*OUTPUT:\\s*([^I]*?)(?=INPUT:|$)", 
+                                        Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+                matcher = pattern.matcher(content);
+                
+                testNumber = 0;
+                while (matcher.find()) {
+                    String inputData = matcher.group(1).trim();
+                    String expectedOutput = matcher.group(2).trim();
+                    
+                    inputData = inputData.replaceAll("\\s+", " ").trim();
+                    expectedOutput = expectedOutput.replaceAll("\\s+", " ").trim();
+                    
+                    if (!inputData.isEmpty() && !expectedOutput.isEmpty()) {
+                        testCases.add(new TestCase(inputData, expectedOutput, testNumber < 2));
+                        log.info("Parsed spaced INPUT/OUTPUT test case {}: input='{}', expected='{}'", 
+                                 testNumber + 1, inputData, expectedOutput);
+                        testNumber++;
+                    }
+                }
+            }
+            
+            log.info("INPUT/OUTPUT format found {} test cases", testCases.size());
+        } catch (Exception e) {
+            log.error("INPUT/OUTPUT format parsing failed: {}", e.getMessage(), e);
+        }
+        return testCases;
+    }
+    
+    /**
+     * Parse arrow format (→ output:)
+     */
+    private List<TestCase> parseArrowFormat(String content) {
+        List<TestCase> testCases = new ArrayList<TestCase>();
+        try {
+            log.debug("Attempting arrow format parsing");
+            
             Pattern pattern = Pattern.compile("([^\u2192]+?)\\s*\u2192\\s*output:\\s*([^\u2192]+?)(?=\\w+\\s*=|$)");
             Matcher matcher = pattern.matcher(content);
             int testNumber = 0;
             while (matcher.find()) {
                 String parameters = matcher.group(1).trim();
                 String expectedOutput = matcher.group(2).trim();
-                testCases.add(new TestCase(parameters, expectedOutput, testNumber < 2));
-                log.debug("Parsed test case {}: input='{}', expected='{}'", new Object[]{++testNumber, parameters, expectedOutput});
+                
+                if (!parameters.isEmpty() && !expectedOutput.isEmpty()) {
+                    testCases.add(new TestCase(parameters, expectedOutput, testNumber < 2));
+                    log.debug("Parsed arrow format test case {}: input='{}', expected='{}'", 
+                             testNumber + 1, parameters, expectedOutput);
+                    testNumber++;
+                }
             }
-            log.info("Successfully parsed {} test cases from arrow format", (Object)testCases.size());
-            if (testCases.isEmpty()) {
-                log.warn("No test cases found with arrow pattern, trying fallback formats...");
-                testCases = this.parseFallbackFormats(content);
-            }
-        }
-        catch (Exception e) {
-            log.error("Error parsing combined content: {}", (Object)e.getMessage(), (Object)e);
+            
+            log.debug("Arrow format found {} test cases", testCases.size());
+        } catch (Exception e) {
+            log.debug("Arrow format parsing failed: {}", e.getMessage());
         }
         return testCases;
     }
@@ -565,63 +667,7 @@ public class MinIOService {
         return testCases;
     }
     
-    private List<TestCase> parseInputOutputFormat(String content) {
-        List<TestCase> testCases = new ArrayList<TestCase>();
-        try {
-            log.info("Attempting to parse INPUT/OUTPUT format");
-            
-            // Split by INPUT: to get test cases
-            String[] parts = content.split("INPUT:");
-            
-            for (String part : parts) {
-                if (part.trim().isEmpty()) continue;
-                
-                // Split by OUTPUT: to separate input and expected output
-                if (part.contains("OUTPUT:")) {
-                    String[] inputOutput = part.split("OUTPUT:");
-                    if (inputOutput.length == 2) {
-                        String inputSection = inputOutput[0].trim();
-                        String outputSection = inputOutput[1].trim();
-                        
-                        // Clean up input section - remove any remaining labels and get just the data
-                        String[] inputLines = inputSection.split("\\r?\\n");
-                        StringBuilder cleanInput = new StringBuilder();
-                        
-                        for (String line : inputLines) {
-                            line = line.trim();
-                            if (!line.isEmpty() && !line.equals("INPUT:") && !line.equals("OUTPUT:")) {
-                                if (cleanInput.length() > 0) cleanInput.append("\n");
-                                cleanInput.append(line);
-                            }
-                        }
-                        
-                        // Clean up output section - get just the expected output
-                        String[] outputLines = outputSection.split("\\r?\\n");
-                        String expectedOutput = "";
-                        
-                        for (String line : outputLines) {
-                            line = line.trim();
-                            if (!line.isEmpty() && !line.equals("INPUT:") && !line.equals("OUTPUT:")) {
-                                expectedOutput = line;
-                                break; // Take first non-empty line as expected output
-                            }
-                        }
-                        
-                        if (!cleanInput.toString().isEmpty() && !expectedOutput.isEmpty()) {
-                            testCases.add(new TestCase(cleanInput.toString(), expectedOutput, testCases.size() < 2));
-                            log.debug("Parsed INPUT/OUTPUT test case {}: input='{}', expected='{}'", 
-                                     testCases.size(), cleanInput.toString().replace("\n", "\\n"), expectedOutput);
-                        }
-                    }
-                }
-            }
-            
-            log.info("Successfully parsed {} test cases from INPUT/OUTPUT format", (Object)testCases.size());
-        } catch (Exception e) {
-            log.error("Error parsing INPUT/OUTPUT format: {}", (Object)e.getMessage(), (Object)e);
-        }
-        return testCases;
-    }
+
 
     private List<TestCase> parseFallbackFormats(String content) {
         ArrayList<TestCase> testCases = new ArrayList<TestCase>();

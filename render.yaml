@@ -1,0 +1,115 @@
+services:
+  # Eureka Service Discovery
+  - type: web
+    name: eureka-service
+    env: docker
+    dockerfilePath: ./Eureka Service/Dockerfile
+    dockerContext: ./Eureka Service
+    plan: starter
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: PORT
+        value: 8761
+
+  # Auth Service
+  - type: web
+    name: auth-service
+    env: docker
+    dockerfilePath: ./Auth Service/Dockerfile
+    dockerContext: ./Auth Service
+    plan: starter
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+        fromService:
+          type: web
+          name: eureka-service
+          property: host
+          envVarKey: EUREKA_URL
+        value: http://${EUREKA_URL}:8761/eureka
+      - key: PORT
+        value: 8091
+
+  # Problem Service
+  - type: web
+    name: problem-service
+    env: docker
+    dockerfilePath: ./Problem Service/Dockerfile
+    dockerContext: ./Problem Service
+    plan: starter
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+        fromService:
+          type: web
+          name: eureka-service
+          property: host
+          envVarKey: EUREKA_URL
+        value: http://${EUREKA_URL}:8761/eureka
+      - key: PORT
+        value: 8082
+
+  # Collab Service
+  - type: web
+    name: collab-service
+    env: docker
+    dockerfilePath: ./Collab Service/Dockerfile
+    dockerContext: ./Collab Service
+    plan: starter
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+        fromService:
+          type: web
+          name: eureka-service
+          property: host
+          envVarKey: EUREKA_URL
+        value: http://${EUREKA_URL}:8761/eureka
+      - key: PORT
+        value: 8092
+
+  # API Gateway
+  - type: web
+    name: api-gateway
+    env: docker
+    dockerfilePath: ./ApiGateway/Dockerfile
+    dockerContext: ./ApiGateway
+    plan: starter
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+        fromService:
+          type: web
+          name: eureka-service
+          property: host
+          envVarKey: EUREKA_URL
+        value: http://${EUREKA_URL}:8761/eureka
+      - key: AUTH_SERVICE_URL
+        fromService:
+          type: web
+          name: auth-service
+          property: host
+          envVarKey: AUTH_HOST
+        value: http://${AUTH_HOST}:8091
+      - key: PROBLEM_SERVICE_URL
+        fromService:
+          type: web
+          name: problem-service
+          property: host
+          envVarKey: PROBLEM_HOST
+        value: http://${PROBLEM_HOST}:8082
+      - key: COLLAB_SERVICE_URL
+        fromService:
+          type: web
+          name: collab-service
+          property: host
+          envVarKey: COLLAB_HOST
+        value: http://${COLLAB_HOST}:8092
+      - key: PORT
+        value: 8086

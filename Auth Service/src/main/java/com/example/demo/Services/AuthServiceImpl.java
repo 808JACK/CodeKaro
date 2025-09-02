@@ -166,16 +166,22 @@ public class AuthServiceImpl implements AuthServiceInterface {
 
         // Extract user ID from expired access token
         Long userId = jwtService.getUserIdFromToken(accessToken);
+        
+        // Get the user
+        User user = authRepo.findUserById(userId);
+        if (user == null) {
+            throw new ApiExceptions("User not found");
+        }
 
-        // Look up the refresh token using user ID
-        RefreshToken getRefreshToken = refreshTokenRepository.findById(userId)
+        // Look up the refresh token using user
+        RefreshToken getRefreshToken = refreshTokenRepository.findByUser(user)
                 .orElseThrow(() -> new ApiExceptions("Login again"));
 
         // Validate the refresh token
         if (!jwtService.validateToken(getRefreshToken.getToken())) {
             throw new ApiExceptions("Refresh token expired or invalid");
         }
-        User user = authRepo.findUserById(userId);
+        
         // Generate new access token
         String newAccessToken = jwtService.generateAccessToken(user);
 
@@ -183,27 +189,43 @@ public class AuthServiceImpl implements AuthServiceInterface {
     }
 
     public String refreshAT(Long userId) {
+        log.info("RefreshAT called for userId: {}", userId);
+        
         User user = authRepo.findUserById(userId);
         if (user == null) {
+            log.error("No user found for userId: {}", userId);
             throw new ResourceNotFoundException("No user found");
         }
+        log.info("User found: {} ({})", user.getUsername(), user.getEmail());
 
-        RefreshToken userRefreshToken = refreshTokenRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("No refresh token info"));
+        RefreshToken userRefreshToken = refreshTokenRepository.findByUser(user)
+                .orElseThrow(() -> {
+                    log.error("No refresh token found for userId: {}", userId);
+                    return new ResourceNotFoundException("No refresh token info");
+                });
+        log.info("Refresh token found for userId: {}", userId);
 
         boolean verify = refreshTokenService.verifyExpiration(userRefreshToken);
+        log.info("Refresh token verification result for userId {}: {}", userId, verify);
 
         if (!verify) {
-            // Instead of throwing, return a unique string
+            log.warn("Refresh token expired for userId: {}", userId);
             return "REFRESH_EXPIRED";
         }
 
-        return jwtService.generateAccess(
-                userRefreshToken.getToken(),
-                userId,
-                user.getUsername(),
-                user.getEmail()
-        );
+        try {
+            String newAccessToken = jwtService.generateAccess(
+                    userRefreshToken.getToken(),
+                    userId,
+                    user.getUsername(),
+                    user.getEmail()
+            );
+            log.info("Successfully generated new access token for userId: {}", userId);
+            return newAccessToken;
+        } catch (Exception e) {
+            log.error("Error generating access token for userId {}: {}", userId, e.getMessage(), e);
+            throw e;
+        }
     }
 }
 

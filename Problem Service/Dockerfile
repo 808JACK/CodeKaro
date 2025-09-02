@@ -23,11 +23,11 @@ WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
 
 # Expose the port your Spring Boot app runs on
-EXPOSE 8091
+EXPOSE 8082
 
 # Add health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:8091/actuator/health || exit 1
+  CMD curl -f http://localhost:8082/actuator/health || exit 1
 
 # Run the Spring Boot application with prod profile
 ENTRYPOINT ["java", "-Dspring.profiles.active=prod", "-jar", "app.jar"]

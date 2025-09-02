@@ -965,5 +965,4 @@ const ContestRoom = () => {
     </div>
   );
 };
-
 export default ContestRoom;

@@ -5,7 +5,6 @@ services:
     env: docker
     dockerfilePath: ./Eureka Service/Dockerfile
     dockerContext: ./Eureka Service
-    plan: starter
     healthCheckPath: /actuator/health
     envVars:
       - key: SPRING_PROFILES_ACTIVE
@@ -17,7 +16,6 @@ services:
     env: docker
     dockerfilePath: ./Auth Service/Dockerfile
     dockerContext: ./Auth Service
-    plan: starter
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
@@ -28,7 +26,6 @@ services:
     env: docker
     dockerfilePath: ./Problem Service/Dockerfile
     dockerContext: ./Problem Service
-    plan: starter
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
@@ -39,7 +36,6 @@ services:
     env: docker
     dockerfilePath: ./Collab Service/Dockerfile
     dockerContext: ./Collab Service
-    plan: starter
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
@@ -50,7 +46,6 @@ services:
     env: docker
     dockerfilePath: ./ApiGateway/Dockerfile
     dockerContext: ./ApiGateway
-    plan: starter
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod

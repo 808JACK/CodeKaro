@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../config/api';
+import { API_CONFIG } from '../config/api';
 
 class KeepAliveService {
   private intervalId: NodeJS.Timeout | null = null;
@@ -29,7 +29,7 @@ class KeepAliveService {
 
   private async ping() {
     try {
-      const response = await fetch(`${API_BASE_URL}/ping`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/ping`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

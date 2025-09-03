@@ -14,16 +14,18 @@ public class RootController {
     public ResponseEntity<Map<String, Object>> root() {
         Map<String, Object> response = new HashMap<>();
         response.put("service", "CodeKaro Collaboration Service");
-        response.put("status", "🤝 Collaboration service is running");
+        response.put("status", "Collaboration service is running");
         response.put("version", "1.0.0");
-        response.put("timestamp", LocalDateTime.now());
+        response.put("timestamp", LocalDateTime.now().toString());
         response.put("description", "Handles contests, code execution, and collaborative programming");
-        response.put("endpoints", Map.of(
-            "health", "/health",
-            "contests", "/collab/api/contests/**",
-            "code-execution", "/collab/api/contests/code/run",
-            "submissions", "/collab/api/contests/{contestCode}/code/submit"
-        ));
+        
+        Map<String, String> endpoints = new HashMap<>();
+        endpoints.put("health", "/health");
+        endpoints.put("contests", "/collab/api/contests/**");
+        endpoints.put("code-execution", "/collab/api/contests/code/run");
+        endpoints.put("submissions", "/collab/api/contests/{contestCode}/code/submit");
+        response.put("endpoints", endpoints);
+        
         return ResponseEntity.ok(response);
     }
 }

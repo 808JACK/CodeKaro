@@ -29,7 +29,7 @@ public class SecurityConfig {
     private final PasswordEncoder passwordEncoder;
     private final UserService userService;
     private static final String[] publicRoutes = {
-            "/auth/**", "/login/**", "/debug/**", "/uploads/**"
+            "/auth/**", "/login/**", "/debug/**", "/uploads/**", "/health", "/status", "/ping"
     };
 
     @Bean

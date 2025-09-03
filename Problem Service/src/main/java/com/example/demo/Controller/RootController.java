@@ -10,20 +10,22 @@ import java.util.Map;
 @RestController
 public class RootController {
     
-    @GetMapping({"/", "/status"})
+    @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> root() {
         Map<String, Object> response = new HashMap<>();
         response.put("service", "CodeKaro Problem Service");
-        response.put("status", "🧩 Problem service is running");
+        response.put("status", "Problem service is running");
         response.put("version", "1.0.0");
-        response.put("timestamp", LocalDateTime.now());
+        response.put("timestamp", LocalDateTime.now().toString());
         response.put("description", "Manages coding problems, topics, and problem details");
-        response.put("endpoints", Map.of(
-            "health", "/health",
-            "topics", "/problem/topicList",
-            "problems-by-topic", "/problem/topic/{topic}",
-            "problem-details", "/problem/{problemId}"
-        ));
+        
+        Map<String, String> endpoints = new HashMap<>();
+        endpoints.put("health", "/health");
+        endpoints.put("topics", "/problem/topicList");
+        endpoints.put("problems-by-topic", "/problem/topic/{topic}");
+        endpoints.put("problem-details", "/problem/{problemId}");
+        response.put("endpoints", endpoints);
+        
         return ResponseEntity.ok(response);
     }
 }
